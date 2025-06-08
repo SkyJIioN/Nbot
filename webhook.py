@@ -22,6 +22,12 @@ async def process_webhook(request: Request):
     await app_telegram.process_update(update)
     return {"ok": True}
 
+async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    prices = get_crypto_prices(["bitcoin", "ethereum"])
+    await update.message.reply_text(f"DEBUG: {prices}")
+
+app_telegram.add_handler(CommandHandler("debug", debug))
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("👋 Привіт! Натисни /analyze для аналізу криптовалют.")
 
