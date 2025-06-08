@@ -9,52 +9,35 @@
 # --- main.py ---
 from fastapi import FastAPI, Request
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-from telegram.ext import TypeHandler
+from telegram.ext import ApplicationBuilder, CommandHandler
 import logging
-import os
-from services.market_data import get_crypto_prices
-from services.groq_client import ask_groq
 
-# --- Logging ---
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from handlers import start, analyze, error_handler
 
-# --- FastAPI init ---
+# Ініціалізація
 app = FastAPI()
+TOKEN = "тут_твій_токен"
 
-# --- Telegram init ---
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # https://your-render-url.com/webhook
+app_telegram = ApplicationBuilder().token(TOKEN).build()
+app_telegram.add_handler(CommandHandler("start", start))
+app_telegram.add_handler(CommandHandler("analyze", analyze))
+app_telegram.add_error_handler(error_handler)
 
-app_telegram = Application.builder().token(BOT_TOKEN).build()
+@app.on_event("startup")
+async def startup():
+    await app_telegram.initialize()
+    print("✅ Telegram Application Initialized")
 
-# --- /start команда ---
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привіт! Надішли /analyze для аналізу ринку.")
-
-# --- /analyze команда ---
-async def analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    prices = get_crypto_prices()
-    prompt = (
-        f"Поточні ціни:\n"
-        + "\n".join([f"{sym}: ${price}" for sym, price in prices.items()])
-        + "\n\nДай короткий аналіз (до 3 речень) і вкажи можливі точки входу/виходу. Українською."
-    )
-    response = ask_groq(prompt)
-    await update.message.reply_text(f"📊 Аналіз ринку:\n{response}")
-
-# --- Error handler ---
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    logger.error(msg="Виняток при обробці оновлення:", exc_info=context.error)
-
-# --- Webhook endpoint ---
 @app.post("/webhook")
-async def telegram_webhook(request: Request):
-    body = await request.json()
-    update = Update.de_json(body, app_telegram.bot)
-    await app_telegram.process_update(update)
-    return {"ok": True}
+async def webhook(request: Request):
+    try:
+        data = await request.json()
+        update = Update.de_json(data, app_telegram.bot)
+        await app_telegram.process_update(update)
+        return {"ok": True}
+    except Exception as e:
+        logging.exception(f"Виняток при обробці оновлення: {e}")
+        return {"ok": False}
 
 # --- / endpoint ---
 @app.get("/")
