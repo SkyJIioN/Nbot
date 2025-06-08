@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from services.market_data import get_btc_price
-from services.groq_client.py import ask_groq
+from services.groq_client import ask_groq
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 WEBHOOK_PATH = "/webhook"
