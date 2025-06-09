@@ -13,7 +13,13 @@ telegram_app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 telegram_app.add_handler(CommandHandler("start", start))
 telegram_app.add_handler(CommandHandler("analyze", analyze))
-
+@app.post("/webhook")
+async def telegram_webhook(req: Request):
+    data = await req.json()
+    print(f"⚡ Отримано оновлення: {data}")  # <--- додай
+    update = telegram.Update.de_json(data, app_telegram.bot)
+    await app_telegram.process_update(update)
+    return {"status": "ok"}
 @app.post(WEBHOOK_PATH)
 async def telegram_webhook(req: Request):
     data = await req.json()
