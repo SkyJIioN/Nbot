@@ -5,7 +5,7 @@ import os
 import logging
 from webhook import start, analyze
 
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 app_telegram = ApplicationBuilder().token(TOKEN).build()
 
