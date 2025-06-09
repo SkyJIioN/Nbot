@@ -25,3 +25,16 @@ async def analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     result = ask_groq(prompt)
     await update.message.reply_text(f"📊 Відповідь ШІ:\n{result}")
+
+@app.post("/webhook")
+async def telegram_webhook(req: Request):
+    try:
+        data = await req.json()
+        print(f"⚡ Отримано оновлення: {data}")
+        update = telegram.Update.de_json(data, app_telegram.bot)
+        await app_telegram.process_update(update)
+    except Exception as e:
+        import traceback
+        print("❌ ПОМИЛКА В ОБРОБЦІ UPDATE:")
+        traceback.print_exc()
+    return {"status": "ok"}
