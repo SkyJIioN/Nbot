@@ -14,8 +14,6 @@ telegram_app = ApplicationBuilder().token(BOT_TOKEN).build()
 telegram_app.add_handler(CommandHandler("start", start))
 telegram_app.add_handler(CommandHandler("analyze", analyze))
 
-@app.post("/webhook")
-async def telegram_webhook(req: Request):
 @app.post(WEBHOOK_PATH)
 async def telegram_webhook(req: Request):
     data = await req.json()
