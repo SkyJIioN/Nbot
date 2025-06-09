@@ -5,7 +5,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler
 from webhook import start, analyze
 
-BOT_TOKEN = os.getenv("TG_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/webhook")
 
 app = FastAPI()
