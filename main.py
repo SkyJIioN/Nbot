@@ -1,28 +1,22 @@
-import os
-import logging
 from fastapi import FastAPI, Request
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler
+from telegram.ext import Application, ApplicationBuilder, ContextTypes, CommandHandler
+import os
+import logging
 from webhook import start, analyze
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/webhook")
+TOKEN = os.getenv("BOT_TOKEN")
+
+app_telegram = ApplicationBuilder().token(TOKEN).build()
+
+app_telegram.add_handler(CommandHandler("start", start))
+app_telegram.add_handler(CommandHandler("analyze", analyze))
 
 app = FastAPI()
-telegram_app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-telegram_app.add_handler(CommandHandler("start", start))
-telegram_app.add_handler(CommandHandler("analyze", analyze))
 @app.post("/webhook")
-async def telegram_webhook(req: Request):
-    data = await req.json()
-    print(f"⚡ Отримано оновлення: {data}")  # <--- додай
-    update = telegram.Update.de_json(data, app_telegram.bot)
+async def webhook(request: Request):
+    data = await request.json()
+    update = Update.de_json(data, app_telegram.bot)
     await app_telegram.process_update(update)
     return {"status": "ok"}
-@app.post(WEBHOOK_PATH)
-async def telegram_webhook(req: Request):
-    data = await req.json()
-    update = Update.de_json(data, telegram_app.bot)
-    await telegram_app.process_update(update)
-    return {"ok": True}
