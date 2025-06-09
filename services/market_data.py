@@ -1,18 +1,17 @@
 import requests
 
 def get_crypto_prices():
-    try:
-        symbols = {"bitcoin": "BTCUSDT", "ethereum": "ETHUSDT"}
-        prices = {}
+    url = "https://api.binance.com/api/v3/ticker/price"
+    symbols = {"BTCUSDT": "bitcoin", "ETHUSDT": "ethereum"}
+    prices = {}
 
-        for key, symbol in symbols.items():
-            url = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}"
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-            prices[key] = float(data["price"])
+    for symbol, name in symbols.items():
+        try:
+            resp = requests.get(url, params={"symbol": symbol}, timeout=5)
+            resp.raise_for_status()
+            prices[name] = round(float(resp.json()["price"]), 2)
+        except Exception as e:
+            print(f"❌ Binance API помилка для {symbol}: {e}")
+            prices[name] = "н/д"
 
-        return prices
-    except Exception as e:
-        print(f"Error fetching Binance data: {e}")
-        return {}
+    return prices
