@@ -1,24 +1,28 @@
+# services/market_data.py
+
 import requests
-import logging
 
-logger = logging.getLogger(__name__)
-
-def get_crypto_prices():
+def get_crypto_prices(tokens: list[str]) -> dict[str, float]:
+    """
+    Отримує поточні ціни криптовалют із Binance.
+    :param tokens: Список ідентифікаторів монет (наприклад, ["bitcoin", "ethereum"])
+    :return: Словник з цінами у форматі {"bitcoin": 10500.0, "ethereum": 2500.0}
+    """
     try:
-        btc_url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-        eth_url = "https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT"
+        url = "https://api.binance.com/api/v3/ticker/price"
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
 
-        btc_response = requests.get(btc_url)
-        eth_response = requests.get(eth_url)
-
-        btc_price = float(btc_response.json()["price"])
-        eth_price = float(eth_response.json()["price"])
-
-        return {
-            "bitcoin": round(btc_price, 2),
-            "ethereum": round(eth_price, 2)
-        }
-
+        prices = {}
+        for token in tokens:
+            symbol = token.upper() + "USDT"
+            match = next((item for item in data if item["symbol"] == symbol), None)
+            if match:
+                prices[token] = float(match["price"])
+            else:
+                prices[token] = None  # або "н/д"
+        return prices
     except Exception as e:
-        logger.error(f"Binance API error: {e}")
-        return None
+        print(f"Error fetching Binance data: {e}")
+        return {}
