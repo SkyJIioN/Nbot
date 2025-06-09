@@ -1,22 +1,27 @@
 from fastapi import FastAPI, Request
 from telegram import Update
-from telegram.ext import Application, ApplicationBuilder, ContextTypes, CommandHandler
-import os
-import logging
+from telegram.ext import ApplicationBuilder
 from webhook import start, analyze
-
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-
-app_telegram = ApplicationBuilder().token(TOKEN).build()
-
-app_telegram.add_handler(CommandHandler("start", start))
-app_telegram.add_handler(CommandHandler("analyze", analyze))
+from config import TELEGRAM_TOKEN
 
 app = FastAPI()
 
+app_telegram = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+app_telegram.add_handler(start)
+app_telegram.add_handler(analyze)
+
+@app.on_event("startup")
+async def startup():
+    await app_telegram.initialize()
+    print("✅ Telegram bot initialized")
+
 @app.post("/webhook")
-async def webhook(request: Request):
-    data = await request.json()
+async def telegram_webhook(req: Request):
+    data = await req.json()
     update = Update.de_json(data, app_telegram.bot)
     await app_telegram.process_update(update)
-    return {"status": "ok"}
+    return {"ok": True}
+
+@app.get("/")
+def root():
+    return {"status": "Bot is running!"}
