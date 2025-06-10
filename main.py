@@ -12,6 +12,7 @@ app = FastAPI()
 application = Application.builder().token(os.getenv("TELEGRAM_BOT_TOKEN")).build()
 application.add_handler(start)
 application.add_handler(analyze)
+application.add_handler(button_handler)
 
 @app.on_event("startup")
 async def startup():
