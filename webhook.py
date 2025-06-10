@@ -1,37 +1,45 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
-from services.market_data import get_crypto_prices
+import os
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import (
+    Application, CommandHandler, CallbackQueryHandler, ContextTypes
+)
+
+from services.market_data import get_price
 from services.groq_client import ask_groq
 
-async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привіт! Напиши /analyze щоб почати.")
+TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-async def analyze_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+application = Application.builder().token(TOKEN).build()
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("Bitcoin (BTC)", callback_data="analyze_BTC")],
-        [InlineKeyboardButton("Ethereum (ETH)", callback_data="analyze_ETH")],
+        [InlineKeyboardButton("Bitcoin", callback_data="bitcoin")],
+        [InlineKeyboardButton("Ethereum", callback_data="ethereum")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Оберіть монету для аналізу:", reply_markup=reply_markup)
 
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+async def analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    coin = query.data
 
-    symbol = query.data.split("_")[1]
-    prices = get_crypto_prices([symbol])
-    price = prices.get(symbol)
+    await query.edit_message_text("Збираю дані...")
 
-    if not price:
-        await query.edit_message_text("Не вдалося отримати ціну.")
-        return
+    try:
+        price = get_price(coin)
+        prompt = (
+            f"Проаналізуй монету {coin.upper()} з ціною {price}$.\n"
+            f"Поради: де увійти, де вийти, поточний тренд. Стислі поради українською мовою."
+        )
+        reply = ask_groq(prompt)
+        await query.edit_message_text(reply)
+    except Exception as e:
+        await query.edit_message_text("Не вдалося отримати дані. Спробуйте пізніше.")
+        print("Error:", e)
 
-    prompt = f"Поточна ціна {symbol} становить ${price:.2f}. Зроби короткий технічний аналіз і поради щодо входу/виходу (UA)."
-    analysis = ask_groq(prompt)
 
-    await query.edit_message_text(f"📊 Аналіз для {symbol}:\n\n{analysis}")
-
-# Обробники, які підключаються в main.py
-start = CommandHandler("start", start_callback)
-analyze = CommandHandler("analyze", analyze_callback)
-button_handler = CallbackQueryHandler(button_callback)
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CallbackQueryHandler(analyze))
