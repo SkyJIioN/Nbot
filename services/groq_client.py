@@ -1,20 +1,34 @@
 import requests
 import os
 
-def ask_groq(prompt):
-    url = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+def analyze_with_groq(prices: dict) -> str:
+    prompt = (
+        "Проаналізуй ринок криптовалют на основі поточних цін:\n\n"
+        + "\n".join([f"{symbol}: ${price:.2f}" for symbol, price in prices.items()])
+        + "\n\nНадай короткий технічний аналіз з точками входу та виходу."
+    )
+
     headers = {
-        "Authorization": f"Bearer {os.getenv('GROQ_API_KEY')}",
+        "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
-    data = {
-        "model": "llama3-8b-8192",
+
+    payload = {
+        "model": "mixtral-8x7b-32768",
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7
     }
+
     try:
-        response = requests.post(url, headers=headers, json=data)
-        return response.json()["choices"][0]["message"]["content"]
+        response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        
+        # 👇 Перевірка наявності 'choices'
+        if "choices" in result and len(result["choices"]) > 0:
+            return result["choices"][0]["message"]["content"]
+        else:
+            return "❌ Не вдалося отримати відповідь від Groq."
     except Exception as e:
-        print("Groq error:", e)
-        return "Помилка ШІ."
+        return f"❌ Помилка Groq: {e}"
