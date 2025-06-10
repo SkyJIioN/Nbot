@@ -1,29 +1,19 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
+from telegram.ext import CommandHandler, CallbackContext
 from services.market_data import get_crypto_prices
 from services.groq_client import ask_groq
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("Аналізувати BTC/ETH", callback_data="analyze")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Привіт! Обери монету для аналізу:", reply_markup=reply_markup)
+start = CommandHandler("start", lambda u, c: u.message.reply_text("Привіт! Обери монету для аналізу: /analyze"))
 
-async def analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text("Очікую дані...")
-
-    prices = get_crypto_prices()
+async def analyze(update: Update, context: CallbackContext):
+    prices = get_crypto_prices(["BTC", "ETH"])
     if not prices:
-        await query.edit_message_text("Помилка при отриманні цін з Binance")
+        await update.message.reply_text("Не вдалося отримати ціни.")
         return
 
-    prompt = f"Зроби короткий аналіз BTC і ETH на основі поточних цін: BTC = {prices.get('btcusdt')} USD, ETH = {prices.get('ethusdt')} USD. Які точки входу/виходу?"
-    answer = ask_groq(prompt)
-    await query.edit_message_text(answer)
-
-# Хендлери
-start = CommandHandler("start", start)
-analyze = CallbackQueryHandler(analyze, pattern="^analyze$")
+    response_msg = "Оберіть монету для аналізу:"
+    buttons = [
+        [InlineKeyboardButton("BTC", callback_data="analyze_BTC")],
+        [InlineKeyboardButton("ETH", callback_data="analyze_ETH")]
+    ]
+    await update.message.reply_text(response_msg, reply_markup=InlineKeyboardMarkup(buttons))
