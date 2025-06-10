@@ -3,7 +3,7 @@ from telegram import Update
 from telegram.ext import Application
 import os
 from dotenv import load_dotenv
-from webhook import start, analyze
+from webhook import start, analyze, button_handler
 
 load_dotenv()
 
