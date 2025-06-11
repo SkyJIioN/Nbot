@@ -31,7 +31,7 @@ async def analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         price = get_price(coin)
         prompt = (
-            f"Проаналізуй монету {coin.upper()} з ціною {price}$.\n"
+            f"Короткий аналіз монет {coin.upper()} з ціною {price}$.\n"
             f"Поради: де увійти, де вийти, поточний тренд. Стислі поради українською мовою."
         )
         reply = ask_groq(prompt)
