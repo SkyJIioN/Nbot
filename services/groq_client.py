@@ -12,13 +12,14 @@ def ask_groq(message: str) -> str:
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
+
     payload = {
-        "model": "mixtral-8x7b-32768",  # або llama3-8b-8192, якщо бажаєш
-        "messages": [
-            {"role": "user", "content": message}
-        ],
-        "temperature": 0.7
-    }
+    "model": "llama3-8b-8192",  # або "llama3-70b-8192"
+    "messages": [
+        {"role": "user", "content": message}
+    ],
+    "temperature": 0.7
+}
 
     response = requests.post(url, headers=headers, json=payload)
 
