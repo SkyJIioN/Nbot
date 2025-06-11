@@ -2,19 +2,31 @@ import os
 import requests
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = "mixtral-8x7b-32768"
 
-def ask_groq(prompt: str) -> str:
+def ask_groq(message: str) -> str:
+    if not GROQ_API_KEY:
+        return "❌ GROQ API ключ не встановлено."
+
+    url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
-    json_data = {
-        "model": GROQ_MODEL,
-        "messages": [{"role": "user", "content": prompt}]
+    payload = {
+        "model": "mixtral-8x7b-32768",  # або llama3-8b-8192, якщо бажаєш
+        "messages": [
+            {"role": "user", "content": message}
+        ],
+        "temperature": 0.7
     }
 
-    response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=json_data)
+    response = requests.post(url, headers=headers, json=payload)
+
+    # Вивід для дебагу:
+    if response.status_code != 200:
+        print("Groq response:", response.text)
+
     response.raise_for_status()
-    result = response.json()
-    return result["choices"][0]["message"]["content"]
+
+    data = response.json()
+    return data["choices"][0]["message"]["content"]
