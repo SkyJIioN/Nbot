@@ -36,8 +36,8 @@ ETH: {eth}$\n
     answer = ask_groq(prompt)
     logger.info(f"[DEBUG] Answer from Groq: {answer}")
 
-    await message.reply_text(f"📊 Аналіз:
-{answer}")
+    await message.reply_text(f"""📊 Аналіз:
+{answer}""")
 
 def setup_handlers(application):
     application.add_handler(CommandHandler("start", start))
