@@ -25,9 +25,10 @@ async def analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     eth = prices["ethereum"]
 
     prompt = (
-        f"Зараз ціни:
+        f"""Зараз ціни:
 BTC: {btc}$
-ETH: {eth}$\n"
+ETH: {eth}$\n
+"""
         f"Чи варто входити в позицію? Аналізуй 1H графік. "
         f"Відповідай українською коротко, до 3 речень, з технічним обґрунтуванням."
     )
