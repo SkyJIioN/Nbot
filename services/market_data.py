@@ -1,17 +1,26 @@
-import os
 import requests
+import pandas as pd
+from datetime import datetime
+import os
 
-CMC_API_KEY = os.getenv("COINMARKETCAP_API_KEY")
+CMC_API_KEY = os.getenv("CMC_API_KEY")
 
-
-def get_price(symbol: str) -> float:
-    symbol_map = {"bitcoin": "BTC", "ethereum": "ETH"}
-    cmc_symbol = symbol_map.get(symbol.lower())
-
-    url = f"https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
+def get_historical_prices(symbol: str):
+    url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/ohlcv/historical"
+    params = {
+        "symbol": symbol.upper(),
+        "convert": "USD",
+        "time_period": "daily",
+        "time_start": (datetime.now().date()).isoformat(),  # сьогодні
+        "count": 1
+    }
     headers = {"X-CMC_PRO_API_KEY": CMC_API_KEY}
-    params = {"symbol": cmc_symbol}
-
-    response = requests.get(url, headers=headers, params=params)
+    response = requests.get(url, params=params, headers=headers)
     data = response.json()
-    return round(data["data"][cmc_symbol]["quote"]["USD"]["price"], 2)
+    if "data" not in data or "quotes" not in data["data"]:
+        raise Exception("Invalid historical data response")
+
+    quotes = data["data"]["quotes"]
+    df = pd.DataFrame(quotes)
+    df["time_open"] = pd.to_datetime(df["time_open"])
+    return df
