@@ -25,10 +25,9 @@ async def analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
     eth = prices["ethereum"]
 
     prompt = (
-        f"""Зараз ціни:
+        f"Зараз ціни:
 BTC: {btc}$
-ETH: {eth}$\n
-"""
+ETH: {eth}$\n"
         f"Чи варто входити в позицію? Аналізуй 1H графік. "
         f"Відповідай українською коротко, до 3 речень, з технічним обґрунтуванням."
     )
@@ -36,8 +35,8 @@ ETH: {eth}$\n
     answer = ask_groq(prompt)
     logger.info(f"[DEBUG] Answer from Groq: {answer}")
 
-    await message.reply_text(f"""📊 Аналіз:
-{answer}""")
+    await message.reply_text(f"📊 Аналіз:
+{answer}")
 
 def setup_handlers(application):
     application.add_handler(CommandHandler("start", start))
