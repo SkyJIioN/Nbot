@@ -3,11 +3,6 @@ from telegram import Update, Bot
 from telegram.ext import Application
 from webhook import application as app_telegram  # це ApplicationBuilder().token(...).build()
 
-from handlers.analyze import analyze_command, analyze_callback
-
-application.add_handler(CommandHandler("analyze", analyze_command))
-application.add_handler(CallbackQueryHandler(analyze_callback, pattern=r"^analyze:"))
-
 app = FastAPI()
 
 @app.post("/webhook")
