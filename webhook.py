@@ -16,7 +16,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Bitcoin", callback_data="bitcoin")],
         [InlineKeyboardButton("Ethereum", callback_data="ethereum")]
-        [InlineKeyboardButton("Ethereum", callback_data="ethereum")]
+        [InlineKeyboardButton("Dogee", callback_data="Dog")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Оберіть монету для аналізу:", reply_markup=reply_markup)
