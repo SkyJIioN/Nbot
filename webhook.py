@@ -13,10 +13,10 @@ application = Application.builder().token(TOKEN).build()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    buttons = [
-    [InlineKeyboardButton("Bitcoin", callback_data="BTC")],
-    [InlineKeyboardButton("Ethereum", callback_data="ETH")]
-]
+    keyboard = [
+        [InlineKeyboardButton("Bitcoin", callback_data="bitcoin")],
+        [InlineKeyboardButton("Ethereum", callback_data="ethereum")]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Оберіть монету для аналізу:", reply_markup=reply_markup)
 
