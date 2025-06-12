@@ -5,7 +5,7 @@ from telegram.ext import ContextTypes
 from services.market_data import get_price
 from services.groq_client import ask_groq
 
-SUPPORTED_SYMBOLS = ["BTC", "ETH", "SOL", "BNB", "DOGE"]
+SUPPORTED_SYMBOLS = ["BTC", "ETH"]
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[InlineKeyboardButton(symbol, callback_data=f"analyze:{symbol}")]
