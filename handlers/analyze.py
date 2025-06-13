@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import MessageHandler, ContextTypes, filters
-from services.market_data import get_price
+from services.market_data import get_crypto_price
 from services.groq_client import ask_groq
 
 async def analyze_symbol(symbol: str) -> str:
