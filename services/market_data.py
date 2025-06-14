@@ -1,22 +1,18 @@
-# --- services/market_data.py ---
-import requests
 import os
+import requests
 
-COINMARKETCAP_API_KEY = os.getenv("COINMARKETCAP_API_KEY")
+CMC_API_KEY = os.getenv("CMC_API_KEY")
 
-headers = {
-    "X-CMC_PRO_API_KEY": COINMARKETCAP_API_KEY
-}
+def fetch_price(symbol: str) -> float | None:
+    url = f"https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
+    headers = {"X-CMC_PRO_API_KEY": CMC_API_KEY}
+    params = {"symbol": symbol, "convert": "USD"}
 
-def get_crypto_price(symbol: str) -> float | None:
-    url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
-    params = {
-        "symbol": symbol,
-        "convert": "USD"
-    }
-    response = requests.get(url, headers=headers, params=params)
-    data = response.json()
     try:
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
         return data["data"][symbol]["quote"]["USD"]["price"]
-    except KeyError:
+    except Exception as e:
+        print(f"Error fetching price: {e}")
         return None
