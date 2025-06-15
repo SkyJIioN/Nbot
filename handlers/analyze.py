@@ -17,7 +17,7 @@ async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     prompt = (
-    f"Ціна {symbol}: {price:.2f} USD.\n"
+    f"Ціна {symbol}: {price:} USD.\n"
     "На основі ціни, зроби короткий технічний аналіз.\n"
     "Визнач оптимальну позицію (LONG або SHORT), точку входу, стоп-лосс та точку виходу (тейк-профіт).\n"
     "Формат відповіді:\n"
