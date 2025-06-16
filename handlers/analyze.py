@@ -1,3 +1,5 @@
+from services.ta_analysis import fetch_historical_prices, analyze_technical
+from config import COINMARKETCAP_API_KEY  
 from telegram import Update
 from telegram.ext import ContextTypes
 from services.market_data import fetch_price
