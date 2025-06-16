@@ -11,18 +11,17 @@ async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE
     symbol = update.message.text.strip().upper()
 
     try:
-        price = get_crypto_price(symbol)
-        if price is None:
-            await update.message.reply_text(f"Не вдалося знайти ціну для {symbol}.")
-            return
+        df = fetch_historical_prices(symbol, COINMARKETCAP_API_KEY)
+        analysis = analyze_technical(df)
 
-        prompt = (
-            f"Зроби короткий технічний аналіз для монети {symbol} при поточній ціні {price}$.\n"
-            f"Вкажи точки входу, виходу, рівні підтримки та опору. Додай рекомендацію."
+        message = (
+            f"🔍 Аналіз для {symbol}:\n"
+            f"📈 Поточна ціна: ${analysis['price']}\n"
+            f"📊 SMA(14): ${analysis['SMA']}\n"
+            f"💹 RSI: {analysis['RSI']:.2f}\n"
+            f"📌 Рекомендація: {analysis['recommendation']}"
         )
-
-        analysis = ask_groq(prompt)
-        await update.message.reply_text(analysis)
     except Exception as e:
-        await update.message.reply_text("Сталася помилка при обробці запиту.")
-        print(f"Error in handle_symbol_input: {e}")
+        message = f"❌ Не вдалося отримати дані по {symbol}. Помилка: {e}"
+
+    await update.message.reply_text(message)
