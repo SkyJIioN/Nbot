@@ -2,6 +2,8 @@ from telegram import Update
 from telegram.ext import ContextTypes, MessageHandler, filters
 from services.market_data import fetch_market_data
 from services.groq_client import ask_groq
+from handlers.analyze import analyze_handler
+application.add_handler(analyze_handler)
 
 
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
