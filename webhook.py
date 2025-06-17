@@ -1,5 +1,4 @@
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from handlers.analyze import analyze_command, handle_symbol_input
 import os
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
