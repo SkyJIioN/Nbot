@@ -33,9 +33,10 @@ else:
     signal = "Немає чіткого сигналу. 📊"
 
 response = (
-    f"Монета: {symbol}
-
-" f"Ціна: ${current_price} " f"RSI: {rsi} | SMA: {sma} " f"Рекомендація: {signal}" )
+    f"Монета: {symbol}" 
+f"Ціна: ${current_price}" 
+f"RSI: {rsi} | SMA: {sma}" 
+f"Рекомендація: {signal}" )
 
 if take_profit and stop_loss:
     response += f"\nТочка входу: ${entry}\nTake Profit: ${take_profit}\nStop Loss: ${stop_loss}"
