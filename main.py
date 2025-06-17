@@ -2,6 +2,8 @@ from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.ext import Application
 from webhook import app_telegram, webhook_handler
+from handlers.analyze import analyze_handler
+application.add_handler(analyze_handler)
 
 app = FastAPI()
 
