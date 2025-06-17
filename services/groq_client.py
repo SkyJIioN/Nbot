@@ -2,26 +2,23 @@ import os
 import requests
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-MODEL = "llama3-8b-8192"
+GROQ_MODEL = "llama3-8b-8192"
 
-def ask_groq(prompt: str) -> str | None:
+headers = {
+    "Authorization": f"Bearer {GROQ_API_KEY}",
+    "Content-Type": "application/json"
+}
+
+def ask_groq(prompt: str) -> str:
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
+    body = {
+        "model": GROQ_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7
     }
-    data = {
-        "model": MODEL,
-        "messages": [
-            {"role": "user", "content": prompt}
-        ]
-    }
-
+    response = requests.post(url, headers=headers, json=body)
+    data = response.json()
     try:
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
-    except Exception as e:
-        print(f"Groq error: {e}")
-        return None
+        return data["choices"][0]["message"]["content"]
+    except:
+        return "Помилка обробки відповіді від Groq."
