@@ -1,12 +1,15 @@
-from fastapi import FastAPI
-from webhook import webhook_router
-from app import app_telegram  # Об'єкт Application з telegram.ext
+from fastapi import FastAPI, Request
+from webhook import webhook_handler
+from app import app_telegram
 
 app = FastAPI()
 
-# Підключаємо маршрути обробки Telegram webhook
-app.include_router(webhook_router)
+@app.post("/webhook")
+async def webhook(request: Request):
+    update_data = await request.json()
+    await webhook_handler(update_data, app_telegram)
+    return {"status": "ok"}
 
 @app.get("/")
 async def root():
-    return {"message": "Bot is running"}
+    return {"message": "Nbot is running"}
