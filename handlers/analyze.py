@@ -1,30 +1,30 @@
 from telegram import Update
-from telegram.ext import ContextTypes, MessageHandler, filters
-from services.market_data import fetch_market_data
+from telegram.ext import ContextTypes
+from services.market_data import get_ohlcv_data
+from services.ta import analyze_market
 from services.groq_client import ask_groq
-from handlers.analyze import analyze_handler
-application.add_handler(analyze_handler)
 
 
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
-
     await update.message.reply_text(f"Аналізую {symbol} на таймфреймі 4 години...")
 
-    market_data = fetch_market_data(symbol)
-    if not market_data:
-        await update.message.reply_text("Не вдалося отримати ринкові дані. Спробуйте пізніше.")
-        return
+    try:
+        ohlcv = get_ohlcv_data(symbol)
+        if not ohlcv:
+            await update.message.reply_text("Не вдалося отримати ринкові дані.")
+            return
 
-    prompt = (
-        f"Проаналізуй ринкові дані криптовалюти {symbol} на основі наступних OHLCV-даних:\n"
-        f"{market_data}\n"
-        "Відповідай коротко українською. Вкажи чи варто відкривати long або short позицію, "
-        "де орієнтовна точка входу та виходу. Не пиши зайвого тексту, тільки висновок."
-    )
+        ta_summary = analyze_market(ohlcv)
+        prompt = (
+            f"На основі цих технічних індикаторів:\n{ta_summary}\n\n"
+            f"Визнач точку входу, виходу та напрямок угоди (Long або Short) для {symbol} "
+            f"на таймфреймі 4 години. Відповідь українською, стисло."
+        )
 
-    result = ask_groq(prompt)
-    await update.message.reply_text(result)
+        groq_response = ask_groq(prompt)
+        await update.message.reply_text(groq_response)
 
-
-analyze_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, handle_symbol_input)
+    except Exception as e:
+        await update.message.reply_text("Виникла помилка під час аналізу.")
+        print("Error in handle_symbol_input:", e)
