@@ -3,6 +3,8 @@ from telegram.ext import ContextTypes
 
 from services.market_data import get_crypto_price
 from services.groq_client import ask_groq
+from handlers.analyze import analyze_handler
+application.add_handler(analyze_handler)
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Введіть символ монети, наприклад BTC або ETH.")
