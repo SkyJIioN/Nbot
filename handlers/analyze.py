@@ -1,33 +1,28 @@
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, MessageHandler, filters
 from services.market_data import fetch_market_data
 from services.groq_client import ask_groq
+
 
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
 
-    await update.message.reply_text(
-        f"Аналізую {symbol} на таймфреймі 4 години..."
-    )
+    await update.message.reply_text(f"Аналізую {symbol} на таймфреймі 4 години...")
 
-    # Отримання ринкових даних
-    ohlcv_data = fetch_market_data(symbol)
-    if ohlcv_data is None:
-        await update.message.reply_text("Не вдалося отримати дані для аналізу.")
+    market_data = fetch_market_data(symbol)
+    if not market_data:
+        await update.message.reply_text("Не вдалося отримати ринкові дані. Спробуйте пізніше.")
         return
 
-    # Формування запиту до ШІ
     prompt = (
-        f"Проаналізуй наступні 4-годинні OHLCV дані для {symbol}:\n\n{ohlcv_data}\n\n"
-        "Зроби короткий технічний аналіз із зазначенням:\n"
-        "- чи варто відкривати LONG або SHORT позицію,\n"
-        "- приблизні точки входу, Take Profit і Stop Loss.\n"
-        "Формат відповіді: 2-3 речення українською мовою."
+        f"Проаналізуй ринкові дані криптовалюти {symbol} на основі наступних OHLCV-даних:\n"
+        f"{market_data}\n"
+        "Відповідай коротко українською. Вкажи чи варто відкривати long або short позицію, "
+        "де орієнтовна точка входу та виходу. Не пиши зайвого тексту, тільки висновок."
     )
 
-    response = ask_groq(prompt)
-    if not response:
-        await update.message.reply_text("Помилка при обробці відповіді ШІ.")
-        return
+    result = ask_groq(prompt)
+    await update.message.reply_text(result)
 
-    await update.message.reply_text(response)
+
+analyze_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, handle_symbol_input)
