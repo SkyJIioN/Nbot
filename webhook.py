@@ -1,9 +1,13 @@
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
-import os
+from fastapi import APIRouter, Request
+from telegram import Update
+from app import app_telegram  # Об'єкт Application з telegram.ext
+import asyncio
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+router = APIRouter()
 
-app_telegram = Application.builder().token(BOT_TOKEN).build()
-
-app_telegram.add_handler(CommandHandler("start", analyze_command))
-app_telegram.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_symbol_input))
+@router.post("/webhook")
+async def webhook_handler(request: Request):
+    data = await request.json()
+    update = Update.de_json(data, app_telegram.bot)
+    asyncio.create_task(app_telegram.process_update(update))
+    return {"status": "ok"}
