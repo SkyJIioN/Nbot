@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.ext import Application
-from webhook import app_telegram, webhook_handler
+from webhook import router as webhook_router
+app.include_router(webhook_router)
 from handlers.analyze import analyze_handler
 application.add_handler(analyze_handler)
 
