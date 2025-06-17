@@ -1,20 +1,12 @@
-from fastapi import FastAPI, Request
-from telegram import Update
-from telegram.ext import Application
-from webhook import router as webhook_router
-app.include_router(webhook_router)
-from handlers.analyze import analyze_handler
-application.add_handler(analyze_handler)
+from fastapi import FastAPI
+from webhook import webhook_router
+from app import app_telegram  # Об'єкт Application з telegram.ext
 
 app = FastAPI()
 
-@app.post("/webhook")
-async def webhook(request: Request):
-    update = Update.de_json(await request.json(), app_telegram.bot)
-    await app_telegram.process_update(update)
-    return {"status": "ok"}
+# Підключаємо маршрути обробки Telegram webhook
+app.include_router(webhook_router)
 
 @app.get("/")
-def root():
-    return {"message": "Bot is live"}
-
+async def root():
+    return {"message": "Bot is running"}
