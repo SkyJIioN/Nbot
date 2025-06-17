@@ -5,7 +5,7 @@ from services.market_data import get_analysis_for_symbol
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE): await update.message.reply_text("Введіть символ монети (наприклад, BTC або ETH), щоб отримати аналіз.")
 
-async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE): symbol = update.message.text.strip().upper() await update.message.reply_text(f"Аналізую {symbol} на таймфреймі 4 години...")
+async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE): symbol = update.message.text.strip().upper() await update.message.reply_text(f"""Аналізую {symbol} на таймфреймі 4 години...""")
 
 result = await get_analysis_for_symbol(symbol)
 if isinstance(result, str):
