@@ -1,13 +1,19 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from telegram import Update
-from app import app_telegram  # Об'єкт Application з telegram.ext
-import asyncio
+from telegram.ext import Application
 
-router = APIRouter()
+from app import app_telegram  # Імпортуємо об'єкт Telegram Application
 
-@router.post("/webhook")
-async def webhook_handler(request: Request):
-    data = await request.json()
-    update = Update.de_json(data, app_telegram.bot)
-    asyncio.create_task(app_telegram.process_update(update))
-    return {"status": "ok"}
+webhook_router = APIRouter()
+
+
+@webhook_router.post("/webhook")
+async def webhook_handler(request: Request, app: Application = Depends(lambda: app_telegram)):
+    try:
+        update_data = await request.json()
+        update = Update.de_json(update_data, app.bot)
+        await app.process_update(update)
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"Error handling webhook: {e}")
+        return {"status": "error", "message": str(e)}
