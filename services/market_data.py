@@ -1,42 +1,63 @@
-import os
 import requests
 import pandas as pd
+import os
 import numpy as np
+from datetime import datetime
 
 CRYPTOCOMPARE_API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY")
+BASE_URL = "https://min-api.cryptocompare.com/data/v2/histo"
 
-def fetch_ohlcv(symbol: str, limit: int = 100) -> pd.DataFrame | None:
-    url = "https://min-api.cryptocompare.com/data/v2/histohour"
+INTERVAL_MAPPING = {
+    "1h": "hour",
+    "4h": "hour",
+    "12h": "hour",
+}
+
+LIMIT_MAPPING = {
+    "1h": 50,
+    "4h": 50,
+    "12h": 50,
+}
+
+MULTIPLIER_MAPPING = {
+    "1h": 1,
+    "4h": 4,
+    "12h": 12,
+}
+
+def fetch_ohlcv(symbol: str, interval: str = "4h"):
+    url_interval = INTERVAL_MAPPING.get(interval)
+    aggregate = MULTIPLIER_MAPPING.get(interval, 4)
+    limit = LIMIT_MAPPING.get(interval, 50)
+
+    url = f"{BASE_URL}{url_interval}"
     params = {
         "fsym": symbol.upper(),
-        "tsym": "USDT",
+        "tsym": "USD",
         "limit": limit,
-        "aggregate": 4,  # 4H таймфрейм
-        "api_key": CRYPTOCOMPARE_API_KEY
+        "aggregate": aggregate,
+        "api_key": CRYPTOCOMPARE_API_KEY,
     }
 
     try:
         response = requests.get(url, params=params)
         response.raise_for_status()
-        data = response.json()
-
-        if data["Response"] != "Success":
-            print(f"❌ API error for {symbol}: {data.get('Message')}")
+        data = response.json()["Data"]["Data"]
+        if not data:
             return None
 
-        df = pd.DataFrame(data["Data"]["Data"])
+        df = pd.DataFrame(data)
         df["time"] = pd.to_datetime(df["time"], unit="s")
         df.set_index("time", inplace=True)
         return df
     except Exception as e:
-        print(f"❌ Failed to fetch OHLCV data for {symbol}: {e}")
+        print(f"❌ Failed to fetch OHLCV data: {e}")
         return None
 
-def calculate_indicators(df: pd.DataFrame) -> dict:
-    indicators = {}
 
-    df["ema20"] = df["close"].ewm(span=20).mean()
-    df["ema50"] = df["close"].ewm(span=50).mean()
+def calculate_indicators(df):
+    df["EMA20"] = df["close"].ewm(span=20).mean()
+    df["EMA50"] = df["close"].ewm(span=50).mean()
 
     delta = df["close"].diff()
     gain = delta.where(delta > 0, 0)
@@ -44,60 +65,49 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
     avg_gain = gain.rolling(window=14).mean()
     avg_loss = loss.rolling(window=14).mean()
     rs = avg_gain / avg_loss
-    df["rsi"] = 100 - (100 / (1 + rs))
+    df["RSI"] = 100 - (100 / (1 + rs))
 
-    exp1 = df["close"].ewm(span=12, adjust=False).mean()
-    exp2 = df["close"].ewm(span=26, adjust=False).mean()
-    df["macd"] = exp1 - exp2
-    df["macd_signal"] = df["macd"].ewm(span=9, adjust=False).mean()
+    df["MACD"] = df["close"].ewm(span=12).mean() - df["close"].ewm(span=26).mean()
+    df["Signal"] = df["MACD"].ewm(span=9).mean()
 
-    df["sma20"] = df["close"].rolling(window=20).mean()
+    df["20sma"] = df["close"].rolling(window=20).mean()
     df["stddev"] = df["close"].rolling(window=20).std()
-    df["upper_band"] = df["sma20"] + 2 * df["stddev"]
-    df["lower_band"] = df["sma20"] - 2 * df["stddev"]
+    df["UpperBand"] = df["20sma"] + 2 * df["stddev"]
+    df["LowerBand"] = df["20sma"] - 2 * df["stddev"]
 
-    df["atr"] = (df["high"] - df["low"]).rolling(window=14).mean()
+    df["TR"] = np.maximum(df["high"] - df["low"], np.maximum(abs(df["high"] - df["close"].shift()), abs(df["low"] - df["close"].shift())))
+    df["ATR"] = df["TR"].rolling(window=14).mean()
 
-    latest = df.iloc[-1]
+    return df
 
-    indicators.update({
-        "price": latest["close"],
-        "rsi": round(latest["rsi"], 2),
-        "ema20": round(latest["ema20"], 2),
-        "ema50": round(latest["ema50"], 2),
-        "macd": round(latest["macd"], 4),
-        "macd_signal": round(latest["macd_signal"], 4),
-        "upper_band": round(latest["upper_band"], 2),
-        "lower_band": round(latest["lower_band"], 2),
-        "atr": round(latest["atr"], 2)
-    })
-
-    return indicators
-
-def analyze_symbol(symbol: str) -> dict | None:
-    df = fetch_ohlcv(symbol)
+def analyze_symbol(symbol: str, interval: str = "4h"):
+    df = fetch_ohlcv(symbol, interval)
     if df is None or df.empty:
         return None
 
-    indicators = calculate_indicators(df)
+    df = calculate_indicators(df)
+    latest = df.iloc[-1]
 
-    # Проста логіка сигналу:
-    rsi = indicators["rsi"]
-    macd = indicators["macd"]
-    macd_signal = indicators["macd_signal"]
-    price = indicators["price"]
+    signal = "Очікування сигналу"
+    reason = ""
 
-    signal = "Очікування"
-    reason = []
+    if latest["RSI"] < 30 and latest["EMA20"] > latest["EMA50"]:
+        signal = "LONG 📈"
+        reason = "RSI < 30 та EMA20 > EMA50"
+    elif latest["RSI"] > 70 and latest["EMA20"] < latest["EMA50"]:
+        signal = "SHORT 📉"
+        reason = "RSI > 70 та EMA20 < EMA50"
 
-    if rsi < 30 and macd > macd_signal:
-        signal = "📈 LONG"
-        reason.append("RSI в зоні перепроданості, MACD вище сигнальної лінії")
-    elif rsi > 70 and macd < macd_signal:
-        signal = "📉 SHORT"
-        reason.append("RSI в зоні перекупленості, MACD нижче сигнальної лінії")
-
-    indicators["signal"] = signal
-    indicators["reason"] = "; ".join(reason)
-
-    return indicators
+    return {
+        "price": round(latest["close"], 2),
+        "rsi": round(latest["RSI"], 2),
+        "ema20": round(latest["EMA20"], 2),
+        "ema50": round(latest["EMA50"], 2),
+        "macd": round(latest["MACD"], 2),
+        "macd_signal": round(latest["Signal"], 2),
+        "upper_band": round(latest["UpperBand"], 2),
+        "lower_band": round(latest["LowerBand"], 2),
+        "atr": round(latest["ATR"], 2),
+        "signal": signal,
+        "reason": reason
+    }
