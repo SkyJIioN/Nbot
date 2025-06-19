@@ -1,3 +1,4 @@
+from telegram.ext import CallbackQueryHandler
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 from handlers.analyze import analyze_command, handle_symbol_input
 import os
