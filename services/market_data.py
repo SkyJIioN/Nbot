@@ -47,20 +47,34 @@ def analyze_symbol(symbol: str) -> str:
 
     df = calculate_indicators(df)
     last = df.iloc[-1]
+    close_price = last["close"]
+    sma = last["SMA"]
+    rsi = last["RSI"]
+
     message = (
         f"📊 Аналіз {symbol}/USDT (4H):\n"
-        f"Ціна: ${last['close']:.2f}\n"
-        f"RSI: {last['RSI']:.2f}\n"
-        f"SMA: {last['SMA']:.2f}\n"
-        f"EMA: {last['EMA']:.2f}\n"
+        f"Ціна: ${close_price:.2f}\n"
+        f"RSI: {rsi:.2f}\n"
+        f"SMA: {sma:.2f}\n"
     )
 
-    # Простий сигнал
-    if last["RSI"] < 30:
-        message += "🔽 Сигнал: Перепроданість. Можливий LONG.\n"
-    elif last["RSI"] > 70:
-        message += "🔼 Сигнал: Перекупленість. Можливий SHORT.\n"
-    else:
-        message += "⏳ Сигнал: Очікування чіткого сигналу.\n"
+    signal = "⏳ Сигнал: Очікування чіткого сигналу."
+    entry = ""
+    exit_ = ""
 
+    if rsi < 30:
+        signal = "🔽 Сигнал: Перепроданість. Можливий LONG."
+        entry_price = close_price * 0.99
+        exit_price = close_price * 1.03
+        entry = f"🔹 Рекомендована точка входу: ${entry_price:.2f}\n"
+        exit_ = f"🔸 Рекомендована точка виходу: ${exit_price:.2f}\n"
+
+    elif rsi > 70:
+        signal = "🔼 Сигнал: Перекупленість. Можливий SHORT."
+        entry_price = close_price * 1.01
+        exit_price = close_price * 0.97
+        entry = f"🔹 Рекомендована точка входу: ${entry_price:.2f}\n"
+        exit_ = f"🔸 Рекомендована точка виходу: ${exit_price:.2f}\n"
+
+    message += f"{signal}\n{entry}{exit_}"
     return message
