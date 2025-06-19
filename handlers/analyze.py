@@ -1,45 +1,44 @@
 from telegram import Update
-from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
+from telegram.ext import ContextTypes
 
 from services.market_data import analyze_symbol
-from services.groq_client import ask_groq
 
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Введіть символ монети, наприклад BTC або ETH (латиницею):")
+    await update.message.reply_text(
+        "✏️ Введіть символ монети (наприклад, BTC, ETH, SOL), яку ви хочете проаналізувати:"
+    )
 
 
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
-
-    await update.message.reply_text(f"⏳ Аналізую {symbol} на таймфреймі 4 години...")
-
-    result = analyze_symbol(symbol)
-    if isinstance(result, str):
-        await update.message.reply_text(f"⚠️ {result}")
-        return
-
-    indicators_str, entry_price, rsi, sma = result
-
-    prompt = (
-        f"Проаналізуй криптовалюту {symbol} на 4H таймфреймі.\n"
-        f"Поточна ціна: ${entry_price:.2f}\n"
-        f"RSI: {rsi:.2f}, SMA: {sma:.2f}\n"
-        f"Зроби короткий технічний аналіз і дай рекомендацію:\n"
-        f"- чи варто відкривати long чи short\n"
-        f"- вкажи орієнтовні точки входу/виходу у форматі USD\n"
-        f"- не перевищуй 3 речення, українською мовою."
-    )
+    await update.message.reply_text(f"⏳ Аналізую {symbol} на таймфреймі 4H...")
 
     try:
-        response = ask_groq(prompt)
-        await update.message.reply_text(response)
+        result = analyze_symbol(symbol)
+        if not result:
+            await update.message.reply_text(f"⚠️ Не вдалося отримати дані для {symbol}.")
+            return
+
+        indicators_str = (
+            f"Ціна: {result['price']}\n"
+            f"RSI: {result['rsi']}\n"
+            f"EMA20: {result['ema20']}, EMA50: {result['ema50']}\n"
+            f"MACD: {result['macd']} / {result['macd_signal']}\n"
+            f"Bollinger Bands: {result['lower_band']} - {result['upper_band']}\n"
+            f"ATR: {result['atr']}\n"
+        )
+
+        signal_text = f"\nРекомендація: {result['signal']}"
+        if result.get("reason"):
+            signal_text += f"\nПричина: {result['reason']}"
+
+        await update.message.reply_text(
+            f"📊 Аналіз {symbol} на 4H:\n\n"
+            f"{indicators_str}"
+            f"{signal_text}"
+        )
+
     except Exception as e:
-        await update.message.reply_text(f"❌ Помилка від Groq: {e}")
-
-
-def get_handlers():
-    return [
-        CommandHandler("analyze", analyze_command),
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_symbol_input)
-    ]
+        await update.message.reply_text(f"❌ Помилка аналізу: {e}")
+        print(f"Error in analyze handler: {e}")
