@@ -1,6 +1,6 @@
 from telegram.ext import CallbackQueryHandler
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
-from handlers.analyze import analyze_command, handle_symbol_input
+from handlers.analyze import analyze_command, handle_symbol_input, handle_timeframe_selection
 import os
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
