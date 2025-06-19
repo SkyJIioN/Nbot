@@ -1,54 +1,64 @@
-# services/market_data.py
-
+import os
 import requests
 import pandas as pd
 
-def get_binance_ohlcv(symbol: str, interval="4h", limit=100):
-    try:
-        url = f"https://api.binance.com/api/v3/klines"
-        params = {
-            "symbol": symbol.upper() + "USDT",
-            "interval": interval,
-            "limit": limit
-        }
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        data = response.json()
-        ohlcv = pd.DataFrame(data, columns=[
-            "timestamp", "open", "high", "low", "close", "volume",
-            "close_time", "quote_asset_volume", "trades",
-            "taker_buy_base", "taker_buy_quote", "ignore"
-        ])
-        ohlcv["close"] = pd.to_numeric(ohlcv["close"])
-        return ohlcv
-    except Exception as e:
-        print(f"Failed to fetch OHLCV data: {e}")
-        return None
+CRYPTOCOMPARE_API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY")  # встав у .env або напряму
 
-def calculate_indicators(df: pd.DataFrame):
-    df["SMA_14"] = df["close"].rolling(window=14).mean()
-    delta = df["close"].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-    rs = gain / loss
-    df["RSI_14"] = 100 - (100 / (1 + rs))
+def get_ohlcv(symbol: str, limit: int = 100):
+    url = f"https://min-api.cryptocompare.com/data/v2/histohour"
+    params = {
+        "fsym": symbol.upper(),
+        "tsym": "USDT",
+        "limit": limit,
+        "aggregate": 4  # 4-годинний інтервал
+    }
+    headers = {
+        "authorization": f"Apikey {CRYPTOCOMPARE_API_KEY}"
+    }
+
+    response = requests.get(url, params=params, headers=headers)
+    data = response.json()
+
+    if data["Response"] != "Success":
+        raise Exception(f"CryptoCompare API error: {data.get('Message', 'Unknown error')}")
+
+    df = pd.DataFrame(data["Data"]["Data"])
+    df["time"] = pd.to_datetime(df["time"], unit="s")
     return df
 
-def analyze_symbol(symbol: str):
-    df = get_binance_ohlcv(symbol)
-    if df is None or df.empty:
-        return None, f"Не вдалося отримати OHLCV дані з Binance для {symbol.upper()}"
+def analyze_symbol(symbol: str) -> str:
+    try:
+        df = get_ohlcv(symbol)
+        df["sma"] = df["close"].rolling(window=10).mean()
+        df["rsi"] = compute_rsi(df["close"])
 
-    df = calculate_indicators(df)
-    current_price = df["close"].iloc[-1]
-    sma = df["SMA_14"].iloc[-1]
-    rsi = df["RSI_14"].iloc[-1]
+        current_price = df["close"].iloc[-1]
+        sma = df["sma"].iloc[-1]
+        rsi = df["rsi"].iloc[-1]
 
-    prompt = (
-        f"Поточна ціна {symbol.upper()} становить {current_price:.2f} USDT.\n"
-        f"SMA(14): {sma:.2f}, RSI(14): {rsi:.2f}.\n"
-        f"На основі цих технічних індикаторів, чи варто відкривати LONG чи SHORT позицію? "
-        f"Дай коротку аналітику з точками входу і виходу українською мовою."
-    )
+        analysis = f"💰 Поточна ціна {symbol.upper()}: ${current_price:.2f}\n"
+        analysis += f"📉 SMA(10): {sma:.2f}, RSI: {rsi:.2f}\n"
 
-    return prompt, None
+        if rsi < 30:
+            analysis += "✅ Рекомендація: LONG (перепроданість)"
+        elif rsi > 70:
+            analysis += "⚠️ Рекомендація: SHORT (перекупленість)"
+        else:
+            analysis += "⏸️ Рекомендація: Очікування сигналу"
+
+        return analysis
+
+    except Exception as e:
+        return f"❌ Помилка аналізу: {e}"
+
+def compute_rsi(series, period: int = 14):
+    delta = series.diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+
+    avg_gain = gain.rolling(window=period).mean()
+    avg_loss = loss.rolling(window=period).mean()
+
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
