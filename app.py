@@ -12,3 +12,5 @@ app_telegram.add_handler(CommandHandler("analyze", analyze_command))
 
 # Обробник введення назви монети
 app_telegram.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_symbol_input))
+
+app_telegram.add_handler(CallbackQueryHandler(handle_timeframe_selection, pattern="^tf_"))
