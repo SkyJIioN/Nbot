@@ -1,7 +1,27 @@
-# handlers/analyze.py
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 from services.market_data import analyze_symbol
+
+async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Введіть символ криптовалюти, наприклад: BTC або ETH"
+    )
+
+async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    symbol = update.message.text.strip().upper()
+    context.user_data["symbol"] = symbol
+
+    keyboard = [
+        [InlineKeyboardButton("1H", callback_data="tf_1h"),
+         InlineKeyboardButton("4H", callback_data="tf_4h"),
+         InlineKeyboardButton("12H", callback_data="tf_12h")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        f"Оберіть таймфрейм для аналізу {symbol}:",
+        reply_markup=reply_markup
+    )
 
 async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
