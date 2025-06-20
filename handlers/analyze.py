@@ -1,51 +1,63 @@
-# handlers/analyze.py
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from services.market_data import analyze_symbol 
 
-# Зберігаємо символ монети, щоб потім отримати його після вибору таймфрейму
-user_context = {}
+from services.market_data import analyze_crypto
 
+# Список доступних таймфреймів
+TIMEFRAMES = {
+    "1H": "1h",
+    "4H": "4h",
+    "12H": "12h"
+}
+
+# Крок 1: Команда /analyze
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Введіть символ криптовалюти (наприклад: BTC, ETH):")
+    await update.message.reply_text("🔎 Введіть символ монети для аналізу (наприклад, BTC, ETH, SOL):")
 
+# Крок 2: Ввід монети
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
-    user_id = update.effective_user.id
-    user_context[user_id] = {"symbol": symbol}
+    context.user_data["symbol"] = symbol
 
     keyboard = [
-        [
-            InlineKeyboardButton("1H", callback_data="tf_1h"),
-            InlineKeyboardButton("4H", callback_data="tf_4h"),
-            InlineKeyboardButton("12H", callback_data="tf_12h"),
-        ]
+        [InlineKeyboardButton(tf, callback_data=f"tf_{TIMEFRAMES[tf]}")]
+        for tf in TIMEFRAMES
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(f"Виберіть таймфрейм для аналізу {symbol}:", reply_markup=reply_markup)
 
+    await update.message.reply_text(
+        f"📈 Оберіть таймфрейм для {symbol}:",
+        reply_markup=reply_markup
+    )
+
+# Крок 3: Обробка вибору таймфрейму
 async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    user_id = query.from_user.id
-    symbol_data = user_context.get(user_id)
-
-    if not symbol_data:
-        await query.edit_message_text("⚠️ Не вдалося знайти символ монети. Спробуйте /analyze знову.")
-        return
-
-    symbol = symbol_data["symbol"]
     timeframe = query.data.replace("tf_", "")
+    symbol = context.user_data.get("symbol")
 
     await query.edit_message_text(f"⏳ Аналізую {symbol} на таймфреймі {timeframe.upper()}...")
 
     try:
         result = await analyze_crypto(symbol, timeframe)
-        if result:
-            await query.message.reply_text(result)
-        else:
-            await query.message.reply_text(f"⚠️ Не вдалося отримати дані для {symbol.upper()}.")
+
+        if result is None:
+            await query.message.reply_text(f"❌ Не вдалося отримати дані для {symbol}")
+            return
+
+        indicators_str, entry_price, exit_price, rsi, sma = result
+
+        response = (
+            f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
+            f"{indicators_str}\n"
+            f"💰 Потенційна точка входу: {entry_price:.2f}$\n"
+            f"📈 Ціль для виходу: {exit_price:.2f}$\n"
+            f"🔁 RSI: {rsi:.2f}\n"
+            f"📊 SMA: {sma:.2f}"
+        )
+        await query.message.reply_text(response)
+
     except Exception as e:
         await query.message.reply_text(f"❌ Помилка при аналізі: {e}")
