@@ -2,7 +2,7 @@
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from services.market_data import analyze_crypto
+from services.market_data import analyze_symbol 
 
 # Зберігаємо символ монети, щоб потім отримати його після вибору таймфрейму
 user_context = {}
