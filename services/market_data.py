@@ -87,3 +87,4 @@ def analyze_symbol(symbol: str, timeframe: str = "4h") -> tuple:
 
     except Exception as e:
         return (f"❌ Не вдалося отримати дані для {symbol.upper()}: {str(e)}", None, None, None)
+analyze_crypto = analyze_symbol
