@@ -67,7 +67,7 @@ def analyze_symbol(symbol: str, timeframe: str = "4h"):
         f"💰 Поточна ціна: {price:.2f}"
     )
 
-    return indicators, entry, entry_price, exit_price
+    return indicators_str, entry_price, exit_price, rsi, sma
 
 # 🔁 Додано псевдонім:
 analyze_crypto = analyze_symbol
