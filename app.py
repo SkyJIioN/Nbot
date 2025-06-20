@@ -6,7 +6,7 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     CallbackQueryHandler,
-    filters,
+    filters
 )
 from handlers.analyze import analyze_command, handle_symbol_input, handle_timeframe_selection
 
@@ -17,8 +17,8 @@ app_telegram = ApplicationBuilder().token(TOKEN).build()
 # Обробник команди /analyze
 app_telegram.add_handler(CommandHandler("analyze", analyze_command))
 
-# Обробка вибору таймфрейму через кнопки
-app_telegram.add_handler(CallbackQueryHandler(handle_timeframe_selection, pattern="^tf_"))
-
-# Обробник введення назви монети
+# Обробник введення символу монети
 app_telegram.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_symbol_input))
+
+# Обробник вибору таймфрейму
+app_telegram.add_handler(CallbackQueryHandler(handle_timeframe_selection, pattern="^tf_"))
