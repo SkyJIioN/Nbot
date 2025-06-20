@@ -1,73 +1,84 @@
+import os
 import requests
 import pandas as pd
-import numpy as np
 
-CRYPTOCOMPARE_API_KEY = "ТВОЙ_API_KEY"
-CRYPTOCOMPARE_URL = "https://min-api.cryptocompare.com/data/v2/histohour"  # або histoday для 1D
+CRYPTOCOMPARE_API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY")
 
-def fetch_ohlcv(symbol: str, timeframe: str = "4h", limit: int = 100):
-    # Перетворюємо timeframe у параметри для API
-    tf_map = {"1h": 1, "4h": 4, "12h": 12}
-    aggregate = tf_map.get(timeframe, 4)
-    
-    url = f"{CRYPTOCOMPARE_URL}?fsym={symbol.upper()}&tsym=USDT&limit={limit}&aggregate={aggregate}&api_key={CRYPTOCOMPARE_API_KEY}"
+BASE_URL = "https://min-api.cryptocompare.com/data/v2/histohour"
 
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        data = response.json()["Data"]["Data"]
-        if not data:
-            raise ValueError("Empty OHLCV data")
+def get_ohlcv(symbol: str, timeframe: str, limit: int = 100):
+    url = BASE_URL
+    params = {
+        "fsym": symbol.upper(),
+        "tsym": "USDT",
+        "limit": limit,
+        "aggregate": timeframe_to_hours(timeframe),
+        "api_key": CRYPTOCOMPARE_API_KEY
+    }
 
-        df = pd.DataFrame(data)
-        df["timestamp"] = pd.to_datetime(df["time"], unit="s")
-        df.set_index("timestamp", inplace=True)
-        return df
-    except Exception as e:
-        print(f"❌ Помилка завантаження OHLCV: {e}")
-        return None
+    response = requests.get(url, params=params)
+    if response.status_code != 200:
+        raise Exception(f"Failed to fetch OHLCV data: {response.status_code} {response.text}")
 
+    data = response.json()["Data"]["Data"]
+    if not data:
+        raise Exception("No OHLCV data returned")
 
-def calculate_indicators(df: pd.DataFrame):
-    df["sma"] = df["close"].rolling(window=14).mean()
-    delta = df["close"].diff()
-    gain = np.where(delta > 0, delta, 0)
-    loss = np.where(delta < 0, -delta, 0)
-    avg_gain = pd.Series(gain).rolling(window=14).mean()
-    avg_loss = pd.Series(loss).rolling(window=14).mean()
-    rs = avg_gain / avg_loss
-    df["rsi"] = 100 - (100 / (1 + rs))
+    df = pd.DataFrame(data)
     return df
 
 
-def analyze_symbol(symbol: str, timeframe: str = "4h"):
-    df = fetch_ohlcv(symbol, timeframe)
-    if df is None:
+def timeframe_to_hours(tf: str) -> int:
+    return {
+        "1h": 1,
+        "4h": 4,
+        "12h": 12
+    }.get(tf.lower(), 4)
+
+
+def calculate_rsi(prices: pd.Series, period: int = 14) -> float:
+    delta = prices.diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+
+    avg_gain = gain.rolling(window=period).mean()
+    avg_loss = loss.rolling(window=period).mean()
+
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+
+    return rsi.iloc[-1]
+
+
+def calculate_sma(prices: pd.Series, period: int = 20) -> float:
+    return prices.rolling(window=period).mean().iloc[-1]
+
+
+async def analyze_crypto(symbol: str, timeframe: str):
+    try:
+        df = get_ohlcv(symbol, timeframe)
+
+        close_prices = df["close"]
+
+        rsi = calculate_rsi(close_prices)
+        sma = calculate_sma(close_prices)
+        current_price = close_prices.iloc[-1]
+
+        signal = ""
+        if rsi < 30 and current_price > sma:
+            signal = "🔼 Рекомендація: Відкрити LONG позицію"
+        elif rsi > 70 and current_price < sma:
+            signal = "🔽 Рекомендація: Відкрити SHORT позицію"
+        else:
+            signal = "⏳ Сигнал не сформовано, очікуємо кращої ситуації"
+
+        entry_price = current_price
+        exit_price = sma if signal != "⏳ Сигнал не сформовано, очікуємо кращої ситуації" else current_price
+
+        indicators_str = f"{signal}\nЦіна: {current_price:.2f}$"
+
+        return indicators_str, entry_price, exit_price, rsi, sma
+
+    except Exception as e:
+        print(f"❌ Error in analyze_crypto: {e}")
         return None
-
-    df = calculate_indicators(df)
-
-    last_row = df.iloc[-1]
-    price = last_row["close"]
-    rsi = last_row["rsi"]
-    sma = last_row["sma"]
-
-    entry = "Нейтральна"
-    if rsi < 30 and price > sma:
-        entry = "LONG"
-    elif rsi > 70 and price < sma:
-        entry = "SHORT"
-
-    entry_price = round(price, 2)
-    exit_price = round(entry_price * 1.05 if entry == "LONG" else entry_price * 0.95, 2)
-
-    indicators = (
-        f"💹 RSI: {rsi:.2f}\n"
-        f"📈 SMA: {sma:.2f}\n"
-        f"💰 Поточна ціна: {price:.2f}"
-    )
-
-    return indicators_str, entry_price, exit_price, rsi, sma
-
-# 🔁 Додано псевдонім:
-analyze_crypto = analyze_symbol
