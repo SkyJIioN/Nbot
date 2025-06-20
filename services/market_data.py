@@ -1,84 +1,70 @@
-import os
 import requests
 import pandas as pd
+import os
 
 CRYPTOCOMPARE_API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY")
 
-BASE_URL = "https://min-api.cryptocompare.com/data/v2/histohour"
+def fetch_ohlcv(symbol: str, timeframe: str = "4h", limit: int = 100):
+    symbol = symbol.upper()
+    url = "https://min-api.cryptocompare.com/data/v2/histohour"
 
-def get_ohlcv(symbol: str, timeframe: str, limit: int = 100):
-    url = BASE_URL
-    params = {
-        "fsym": symbol.upper(),
-        "tsym": "USDT",
-        "limit": limit,
-        "aggregate": timeframe_to_hours(timeframe),
-        "api_key": CRYPTOCOMPARE_API_KEY
-    }
-
-    response = requests.get(url, params=params)
-    if response.status_code != 200:
-        raise Exception(f"Failed to fetch OHLCV data: {response.status_code} {response.text}")
-
-    data = response.json()["Data"]["Data"]
-    if not data:
-        raise Exception("No OHLCV data returned")
-
-    df = pd.DataFrame(data)
-    return df
-
-
-def timeframe_to_hours(tf: str) -> int:
-    return {
+    tf_map = {
         "1h": 1,
         "4h": 4,
         "12h": 12
-    }.get(tf.lower(), 4)
+    }
 
+    aggregate = tf_map.get(timeframe, 4)
 
-def calculate_rsi(prices: pd.Series, period: int = 14) -> float:
-    delta = prices.diff()
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
+    params = {
+        "fsym": symbol,
+        "tsym": "USDT",
+        "limit": limit,
+        "aggregate": aggregate,
+        "api_key": CRYPTOCOMPARE_API_KEY
+    }
 
-    avg_gain = gain.rolling(window=period).mean()
-    avg_loss = loss.rolling(window=period).mean()
-
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-
-    return rsi.iloc[-1]
-
-
-def calculate_sma(prices: pd.Series, period: int = 20) -> float:
-    return prices.rolling(window=period).mean().iloc[-1]
-
-
-async def analyze_crypto(symbol: str, timeframe: str):
     try:
-        df = get_ohlcv(symbol, timeframe)
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
 
-        close_prices = df["close"]
+        if data["Response"] != "Success":
+            raise Exception("Invalid response from CryptoCompare")
 
-        rsi = calculate_rsi(close_prices)
-        sma = calculate_sma(close_prices)
-        current_price = close_prices.iloc[-1]
-
-        signal = ""
-        if rsi < 30 and current_price > sma:
-            signal = "🔼 Рекомендація: Відкрити LONG позицію"
-        elif rsi > 70 and current_price < sma:
-            signal = "🔽 Рекомендація: Відкрити SHORT позицію"
-        else:
-            signal = "⏳ Сигнал не сформовано, очікуємо кращої ситуації"
-
-        entry_price = current_price
-        exit_price = sma if signal != "⏳ Сигнал не сформовано, очікуємо кращої ситуації" else current_price
-
-        indicators_str = f"{signal}\nЦіна: {current_price:.2f}$"
-
-        return indicators_str, entry_price, exit_price, rsi, sma
-
+        df = pd.DataFrame(data["Data"]["Data"])
+        return df
     except Exception as e:
-        print(f"❌ Error in analyze_crypto: {e}")
+        print(f"❌ Помилка завантаження OHLCV: {e}")
         return None
+
+async def analyze_crypto(symbol: str, timeframe: str = "4h"):
+    df = fetch_ohlcv(symbol, timeframe)
+
+    if df is None or df.empty:
+        return None
+
+    df["close"] = pd.to_numeric(df["close"], errors="coerce")
+    df["rsi"] = df["close"].pct_change().rolling(window=14).mean()
+    df["sma"] = df["close"].rolling(window=20).mean()
+
+    latest = df.iloc[-1]
+    rsi = latest["rsi"]
+    sma = latest["sma"]
+    price = latest["close"]
+
+    if pd.isna(rsi) or pd.isna(sma):
+        return None
+
+    if rsi < 30 and price > sma:
+        signal = "🟢 LONG"
+    elif rsi > 70 and price < sma:
+        signal = "🔴 SHORT"
+    else:
+        signal = "⚪️ Очікування сигналу"
+
+    entry_price = price
+    exit_price = entry_price * 1.05 if signal == "🟢 LONG" else entry_price * 0.95
+
+    indicators_str = f"{signal}"
+    return indicators_str, entry_price, exit_price, rsi, sma
