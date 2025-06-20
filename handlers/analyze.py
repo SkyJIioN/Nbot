@@ -1,20 +1,16 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-
 from services.market_data import analyze_crypto
 
-# Список доступних таймфреймів
 TIMEFRAMES = {
     "1H": "1h",
     "4H": "4h",
     "12H": "12h"
 }
 
-# Крок 1: Команда /analyze
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔎 Введіть символ монети для аналізу (наприклад, BTC, ETH, SOL):")
 
-# Крок 2: Ввід монети
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
     context.user_data["symbol"] = symbol
@@ -30,7 +26,6 @@ async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE
         reply_markup=reply_markup
     )
 
-# Крок 3: Обробка вибору таймфрейму
 async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -41,7 +36,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
     await query.edit_message_text(f"⏳ Аналізую {symbol} на таймфреймі {timeframe.upper()}...")
 
     try:
-        result = await analyze_crypto(symbol, timeframe)
+        result = analyze_crypto(symbol, timeframe)  # 🛠️ без await
 
         if result is None:
             await query.message.reply_text(f"❌ Не вдалося отримати дані для {symbol}")
