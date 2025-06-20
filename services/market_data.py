@@ -1,81 +1,89 @@
-# services/market_data.py
-
-import os
 import requests
 import pandas as pd
+from datetime import datetime
+import os
 
-CRYPTOCOMPARE_API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY")
+API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY")
 
-INTERVAL_MAP = {
-    "1h": "60",
-    "4h": "240",
-    "12h": "720"
-}
+def get_ohlcv(symbol: str, timeframe: str = "4h") -> pd.DataFrame:
+    mapping = {
+        "1h": ("hour", 1),
+        "4h": ("hour", 4),
+        "12h": ("hour", 12),
+        "1d": ("day", 1),
+    }
 
-def fetch_ohlcv(symbol: str, timeframe: str = "4h", limit: int = 100):
-    symbol = symbol.upper()
-    if timeframe not in INTERVAL_MAP:
-        timeframe = "4h"
+    if timeframe not in mapping:
+        raise ValueError(f"Unsupported timeframe: {timeframe}")
 
-    aggregate = INTERVAL_MAP[timeframe]
-    url = f"https://min-api.cryptocompare.com/data/v2/histohour?fsym={symbol}&tsym=USDT&limit={limit}&aggregate={aggregate}"
+    unit, aggregate = mapping[timeframe]
 
-    headers = {"authorization": f"Apikey {CRYPTOCOMPARE_API_KEY}"}
-    response = requests.get(url, headers=headers)
-    data = response.json()
+    # fallback у випадку занадто великого aggregate
+    if (unit == "hour" and aggregate > 24) or (unit == "day" and aggregate > 30):
+        aggregate = 1
 
-    if data["Response"] != "Success":
-        raise ValueError(f"❌ Помилка завантаження OHLCV: {data.get('Message')}")
+    url = f"https://min-api.cryptocompare.com/data/v2/histo{unit}?fsym={symbol.upper()}&tsym=USDT&limit=100&aggregate={aggregate}&api_key={API_KEY}"
 
-    df = pd.DataFrame(data["Data"]["Data"])
-    if df.empty:
-        raise ValueError("❌ Порожні дані для графіку")
-
-    df["timestamp"] = pd.to_datetime(df["time"], unit="s")
-    return df
-
-def calculate_indicators(df: pd.DataFrame):
-    df["SMA"] = df["close"].rolling(window=20).mean()
-    delta = df["close"].diff()
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
-    avg_gain = gain.rolling(window=14).mean()
-    avg_loss = loss.rolling(window=14).mean()
-    rs = avg_gain / avg_loss
-    df["RSI"] = 100 - (100 / (1 + rs))
-    return df
-
-async def analyze_crypto(symbol: str, timeframe: str = "4h") -> str:
     try:
-        df = fetch_ohlcv(symbol, timeframe)
-        df = calculate_indicators(df)
-
-        current_price = df["close"].iloc[-1]
-        sma = df["SMA"].iloc[-1]
-        rsi = df["RSI"].iloc[-1]
-
-        recommendation = "🔍 Аналіз:\n"
-        recommendation += f"{symbol.upper()} на {timeframe.upper()}\n"
-        recommendation += f"Ціна: ${current_price:.2f}\n"
-        recommendation += f"📉 SMA (20): {sma:.2f}\n"
-        recommendation += f"📊 RSI: {rsi:.2f}\n"
-
-        if rsi < 30:
-            entry = current_price * 0.99
-            exit = current_price * 1.05
-            recommendation += "✅ Рекомендація: Відкрити LONG\n"
-            recommendation += f"🎯 Точка входу: ~${entry:.2f}\n"
-            recommendation += f"🎯 Точка виходу: ~${exit:.2f}"
-        elif rsi > 70:
-            entry = current_price * 1.01
-            exit = current_price * 0.95
-            recommendation += "✅ Рекомендація: Відкрити SHORT\n"
-            recommendation += f"🎯 Точка входу: ~${entry:.2f}\n"
-            recommendation += f"🎯 Точка виходу: ~${exit:.2f}"
-        else:
-            recommendation += "⏳ Очікуйте кращої точки входу."
-
-        return recommendation
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()["Data"]["Data"]
     except Exception as e:
-        print("❌", e)
-        return None
+        raise RuntimeError(f"Failed to fetch OHLCV data: {e}")
+
+    df = pd.DataFrame(data)
+    df["timestamp"] = pd.to_datetime(df["time"], unit="s")
+    df.set_index("timestamp", inplace=True)
+
+    return df[["open", "high", "low", "close", "volumeto"]]
+
+def calculate_indicators(df: pd.DataFrame) -> dict:
+    df["sma"] = df["close"].rolling(window=14).mean()
+    delta = df["close"].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df["rsi"] = 100 - (100 / (1 + rs))
+    return {
+        "rsi": df["rsi"].iloc[-1],
+        "sma": df["sma"].iloc[-1],
+        "current_price": df["close"].iloc[-1],
+    }
+
+def analyze_symbol(symbol: str, timeframe: str = "4h") -> tuple:
+    try:
+        df = get_ohlcv(symbol, timeframe)
+        indicators = calculate_indicators(df)
+
+        rsi = indicators["rsi"]
+        sma = indicators["sma"]
+        price = indicators["current_price"]
+
+        if pd.isna(rsi) or pd.isna(sma):
+            return ("⚠️ Недостатньо даних для аналізу.", None, None, None)
+
+        signal = ""
+        if rsi < 30 and price > sma:
+            signal = "🟢 Рекомендовано LONG"
+        elif rsi > 70 and price < sma:
+            signal = "🔴 Рекомендовано SHORT"
+        else:
+            signal = "🟡 Очікування сигналу"
+
+        entry = round(price, 2)
+        exit_1 = round(entry * 1.03, 2)
+        exit_2 = round(entry * 1.05, 2)
+
+        text = (
+            f"📈 RSI: {round(rsi, 2)}\n"
+            f"📊 SMA(14): {round(sma, 2)}\n"
+            f"💰 Поточна ціна: ${entry}\n\n"
+            f"{signal}\n"
+            f"🔽 Вхід: ${entry}\n"
+            f"🔼 Вихід: ${exit_1} — ${exit_2}"
+        )
+
+        return text, entry, rsi, sma
+
+    except Exception as e:
+        return (f"❌ Не вдалося отримати дані для {symbol.upper()}: {str(e)}", None, None, None)
