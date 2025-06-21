@@ -83,7 +83,7 @@ async def analyze_crypto(symbol: str, timeframe: str = "1h"):
             f"• Рекомендація: {recommendation}"
         )
 
-        return indicators_str, entry_price, exit_price, rsi, sma
+        return indicators_str, entry_price, exit_price, rsi, sma, close 
 
     except Exception as e:
         print(f"❌ Помилка при завантаженні OHLCV: {e}")
