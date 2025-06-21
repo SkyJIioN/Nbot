@@ -53,6 +53,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
 
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
+            f"💹 Поточна ціна: {current_price:.5f}$\n"
             f"{indicators_str}\n"
             f"💰 Потенційна точка входу: {entry_price:.5f}$\n"
             f"📈 Ціль для виходу: {exit_price:.5f}$\n"
