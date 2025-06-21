@@ -1,80 +1,73 @@
 import requests
-import pandas as pd
+import numpy as np
 import os
 
 CRYPTOCOMPARE_API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY")
+
 BASE_URL = "https://min-api.cryptocompare.com/data/v2/histohour"
 
-def calculate_rsi(prices: list, period: int = 14) -> float | None:
-    if len(prices) < period + 1:
-        return None
+HEADERS = {
+    "authorization": f"Apikey {CRYPTOCOMPARE_API_KEY}"
+}
 
-    df = pd.DataFrame(prices, columns=["close"])
-    delta = df["close"].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    return round(rsi.iloc[-1], 2)
 
-def calculate_sma(prices: list, period: int = 14) -> float | None:
+def calculate_rsi(prices: list, period: int = 14):
+    deltas = np.diff(prices)
+    seed = deltas[:period]
+    up = seed[seed >= 0].sum() / period
+    down = -seed[seed < 0].sum() / period
+    rs = up / down if down != 0 else 0
+    rsi = 100. - 100. / (1. + rs)
+    return rsi
+
+
+def calculate_sma(prices: list, period: int = 14):
     if len(prices) < period:
-        return None
-    sma = pd.Series(prices).rolling(window=period).mean()
-    return round(sma.iloc[-1], 2)
+        return sum(prices) / len(prices)
+    return sum(prices[-period:]) / period
 
-async def analyze_crypto(symbol: str, timeframe: str = "1h"):
+
+async def analyze_crypto(symbol: str, timeframe: str):
     symbol = symbol.upper()
-    aggregate_map = {
-        "1h": 1,
-        "4h": 4,
-        "12h": 12
-    }
+    limit = 100
+    aggregate = 1
 
-    if timeframe not in aggregate_map:
+    # Визначення інтервалу
+    if timeframe == "1h":
+        url = f"{BASE_URL}?fsym={symbol}&tsym=USDT&limit={limit}&aggregate={aggregate}"
+    elif timeframe == "4h":
+        url = f"{BASE_URL}?fsym={symbol}&tsym=USDT&limit={limit}&aggregate=4"
+    elif timeframe == "12h":
+        url = f"{BASE_URL}?fsym={symbol}&tsym=USDT&limit={limit}&aggregate=12"
+    else:
         return None
-
-    params = {
-        "fsym": symbol,
-        "tsym": "USD",
-        "limit": 100,
-        "aggregate": aggregate_map[timeframe],
-        "api_key": CRYPTOCOMPARE_API_KEY
-    }
 
     try:
-        response = requests.get(BASE_URL, params=params)
+        response = requests.get(url, headers=HEADERS)
         response.raise_for_status()
         data = response.json()
 
-        if data["Response"] != "Success":
+        if "Data" not in data or "Data" not in data["Data"]:
             return None
 
-        prices = [candle["close"] for candle in data["Data"]["Data"] if candle["close"] > 0]
+        ohlcv = data["Data"]["Data"]
 
-        if len(prices) < 20:
+        closes = [candle["close"] for candle in ohlcv if candle["close"] > 0]
+
+        if len(closes) < 20:
             return None
 
-        rsi = calculate_rsi(prices)
-        sma = calculate_sma(prices)
-        current_price = prices[-1]
+        rsi = calculate_rsi(closes)
+        sma = calculate_sma(closes)
+        current_price = closes[-1]
 
-        if rsi is None or sma is None:
-            return None
-
-        # Рекомендація на основі RSI
+        # Рекомендації
         if rsi > 70:
-            recommendation = "SHORT"
-            entry_price = current_price * 1.01
-            exit_price = sma * 0.99
+            recommendation = "🔴 Перекупленість (можлива корекція)"
         elif rsi < 30:
-            recommendation = "LONG"
-            entry_price = current_price * 0.99
-            exit_price = sma * 1.01
+            recommendation = "🟢 Перепроданість (можливе зростання)"
         else:
-            recommendation = "Очікування сигналу"
-            entry_price = current_price
-            exit_price = sma
+            recommendation = "⚪️ Очікування сигналу"
 
         indicators_str = (
             f"🔍 Індикатори:\n"
@@ -83,8 +76,12 @@ async def analyze_crypto(symbol: str, timeframe: str = "1h"):
             f"• Рекомендація: {recommendation}"
         )
 
-        return indicators_str, entry_price, exit_price, rsi, sma, close 
+        # Точки входу та виходу
+        entry_price = current_price * 1.01
+        exit_price = current_price * 0.97
+
+        return indicators_str, entry_price, exit_price, rsi, sma, current_price
 
     except Exception as e:
-        print(f"❌ Помилка при завантаженні OHLCV: {e}")
+        print(f"Помилка при завантаженні OHLCV: {e}")
         return None
