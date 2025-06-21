@@ -45,7 +45,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
             await query.message.reply_text(f"❌ Не вдалося отримати дані для {symbol}")
             return
 
-        indicators_str, entry_price, exit_price, rsi, sma = result
+        indicators_str, entry_price, exit_price, rsi, sma, current_price = await analyze_crypto(symbol, timeframe)
 
         if None in (entry_price, exit_price, rsi, sma):
             await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
