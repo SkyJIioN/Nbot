@@ -1,88 +1,84 @@
+import os
 import requests
 import pandas as pd
-import numpy as np
-from datetime import datetime
 
-CRYPTOCOMPARE_API_KEY = "YOUR_CRYPTOCOMPARE_API_KEY"
-BASE_URL = "https://min-api.cryptocompare.com/data/v2/histohour"
+CRYPTOCOMPARE_API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY")
 
-headers = {
-    "authorization": f"Apikey {CRYPTOCOMPARE_API_KEY}"
-}
+def get_ohlcv(symbol: str, timeframe: str):
+    endpoint = "histohour" if timeframe == "1h" else "histoday"
+    aggregate = 1 if timeframe == "1h" else (4 if timeframe == "4h" else 12)
 
-def fetch_ohlcv(symbol: str, timeframe: str = "1h", limit: int = 100):
-    aggregate_map = {
-        "1h": 1,
-        "4h": 4,
-        "12h": 12,
-    }
-
-    aggregate = aggregate_map.get(timeframe, 1)
+    url = f"https://min-api.cryptocompare.com/data/v2/{endpoint}"
     params = {
         "fsym": symbol.upper(),
         "tsym": "USD",
-        "limit": limit,
-        "aggregate": aggregate
+        "limit": 100,
+        "aggregate": aggregate,
+        "api_key": CRYPTOCOMPARE_API_KEY
     }
+
     try:
-        response = requests.get(BASE_URL, headers=headers, params=params)
-        response.raise_for_status()
+        response = requests.get(url, params=params)
         data = response.json()
-        return data["Data"]["Data"]
+
+        if data.get("Response") != "Success" or not data["Data"]["Data"]:
+            print(f"❌ API error: {data}")
+            return None
+
+        df = pd.DataFrame(data["Data"]["Data"])
+        df = df[["time", "open", "high", "low", "close"]]
+        df["time"] = pd.to_datetime(df["time"], unit="s")
+        return df
+
     except Exception as e:
-        print(f"❌ Failed to fetch OHLCV data: {e}")
+        print(f"❌ Exception while fetching OHLCV: {e}")
         return None
 
+
 def calculate_indicators(df: pd.DataFrame):
+    df["RSI"] = compute_rsi(df["close"])
     df["SMA"] = df["close"].rolling(window=14).mean()
-    delta = df["close"].diff()
-    gain = delta.where(delta > 0, 0.0)
-    loss = -delta.where(delta < 0, 0.0)
-    avg_gain = gain.rolling(window=14).mean()
-    avg_loss = loss.rolling(window=14).mean()
-    rs = avg_gain / avg_loss
-    df["RSI"] = 100 - (100 / (1 + rs))
     return df
 
-def generate_analysis(df: pd.DataFrame):
+
+def compute_rsi(series: pd.Series, period: int = 14):
+    delta = series.diff()
+    up = delta.clip(lower=0)
+    down = -1 * delta.clip(upper=0)
+    ma_up = up.rolling(window=period).mean()
+    ma_down = down.rolling(window=period).mean()
+    rs = ma_up / ma_down
+    return 100 - (100 / (1 + rs))
+
+
+async def analyze_crypto(symbol: str, timeframe: str):
+    df = get_ohlcv(symbol, timeframe)
+    if df is None or df.empty:
+        return None
+
+    df = calculate_indicators(df)
     latest = df.iloc[-1]
+
     rsi = latest["RSI"]
     sma = latest["SMA"]
-    price = latest["close"]
+    close_price = latest["close"]
 
-    # Рекомендація
-    recommendation = "Очікування сигналу"
-    if rsi and sma:
-        if rsi < 40 and price < sma:
-            recommendation = "LONG"
-        elif rsi > 60 and price > sma:
-            recommendation = "SHORT"
+    # Проста стратегія
+    if rsi < 30 and close_price > sma:
+        recommendation = "🟢 LONG"
+    elif rsi > 70 and close_price < sma:
+        recommendation = "🔴 SHORT"
+    else:
+        recommendation = "⚪️ Очікування сигналу"
 
     indicators_str = (
         f"🔍 Індикатори:\n"
-        f"• RSI: {rsi:.2f} ({'Перепроданість' if rsi < 30 else 'Перекупленість' if rsi > 70 else 'Нейтрально'})\n"
+        f"• RSI: {rsi:.2f} ({'Надмірно продано' if rsi < 30 else 'Надмірно куплено' if rsi > 70 else 'Нейтрально'})\n"
         f"• SMA: {sma:.2f}\n"
         f"• Рекомендація: {recommendation}"
     )
 
-    entry_price = price
-    exit_price = price * (1.05 if recommendation == "LONG" else 0.95 if recommendation == "SHORT" else 1.0)
+    entry_price = close_price
+    exit_price = sma if recommendation != "⚪️ Очікування сигналу" else None
 
     return indicators_str, entry_price, exit_price, rsi, sma
-
-async def analyze_crypto(symbol: str, timeframe: str):
-    raw_data = fetch_ohlcv(symbol, timeframe)
-    if not raw_data or len(raw_data) < 20:
-        return None
-
-    df = pd.DataFrame(raw_data)
-    df = df[["time", "open", "high", "low", "close", "volumefrom"]]
-    df.columns = ["time", "open", "high", "low", "close", "volume"]
-    df["time"] = pd.to_datetime(df["time"], unit="s")
-
-    df = calculate_indicators(df)
-
-    if df[["RSI", "SMA"]].isnull().values.any():
-        return None
-
-    return generate_analysis(df)
