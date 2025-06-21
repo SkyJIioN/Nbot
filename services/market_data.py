@@ -67,3 +67,7 @@ async def analyze_crypto(symbol: str, timeframe: str = "1h"):
     except Exception as e:
         print(f"Failed to fetch OHLCV data: {e}")
         return None
+if pd.isna(rsi) or pd.isna(sma):
+            return None
+
+        return indicators_str, entry_price, exit_price, rsi, sma
