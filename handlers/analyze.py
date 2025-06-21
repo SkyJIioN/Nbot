@@ -54,10 +54,10 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
             f"{indicators_str}\n"
-            f"💰 Потенційна точка входу: {entry_price:.2f}$\n"
-            f"📈 Ціль для виходу: {exit_price:.2f}$\n"
-            f"🔁 RSI: {rsi:.2f}\n"
-            f"📊 SMA: {sma:.2f}"
+            f"💰 Потенційна точка входу: {entry_price:.5f}$\n"
+            f"📈 Ціль для виходу: {exit_price:.5f}$\n"
+            f"🔁 RSI: {rsi:.5f}\n"
+            f"📊 SMA: {sma:.5f}"
         )
         await query.message.reply_text(response)
 
