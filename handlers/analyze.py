@@ -54,16 +54,16 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
         if current_price is None:
             current_price_text = "❌ Поточну ціну не вдалося отримати."
         else:
-            current_price_text = f"💱 Поточна ціна: {current_price:.5f}$"
+            current_price_text = f"💱 Поточна ціна: {current_price:.2f}$"
 
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
             f"{indicators_str}\n"
             f"{current_price_text}\n"
-            f"💰 Потенційна точка входу: {entry_price:.5f}$\n"
-            f"📈 Ціль для виходу: {exit_price:.5f}$\n"
-            f"🔁 RSI: {rsi:.5f}\n"
-            f"📊 SMA: {sma:.5f}"
+            f"💰 Потенційна точка входу: {entry_price:.2f}$\n"
+            f"📈 Ціль для виходу: {exit_price:.2f}$\n"
+            f"🔁 RSI: {rsi:.2f}\n"
+            f"📊 SMA: {sma:.2f}"
         )
 
         await query.message.reply_text(response)
