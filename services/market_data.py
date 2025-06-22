@@ -6,82 +6,108 @@ CRYPTOCOMPARE_API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY")
 
 BASE_URL = "https://min-api.cryptocompare.com/data/v2/histohour"
 
-HEADERS = {
-    "authorization": f"Apikey {CRYPTOCOMPARE_API_KEY}"
-}
-
-
-def calculate_rsi(prices: list, period: int = 14):
-    deltas = np.diff(prices)
-    seed = deltas[:period]
-    up = seed[seed >= 0].sum() / period
-    down = -seed[seed < 0].sum() / period
-    rs = up / down if down != 0 else 0
-    rsi = 100. - 100. / (1. + rs)
-    return rsi
-
-
-def calculate_sma(prices: list, period: int = 14):
-    if len(prices) < period:
-        return sum(prices) / len(prices)
-    return sum(prices[-period:]) / period
-
-
-async def analyze_crypto(symbol: str, timeframe: str):
+def fetch_ohlcv(symbol: str, timeframe: str):
     symbol = symbol.upper()
+    mapping = {"1h": 60, "4h": 240, "12h": 720}
     limit = 100
-    aggregate = 1
 
-    # Визначення інтервалу
-    if timeframe == "1h":
-        url = f"{BASE_URL}?fsym={symbol}&tsym=USDT&limit={limit}&aggregate={aggregate}"
-    elif timeframe == "4h":
-        url = f"{BASE_URL}?fsym={symbol}&tsym=USDT&limit={limit}&aggregate=4"
-    elif timeframe == "12h":
-        url = f"{BASE_URL}?fsym={symbol}&tsym=USDT&limit={limit}&aggregate=12"
-    else:
-        return None
+    if timeframe not in mapping:
+        raise ValueError("❌ Непідтримуваний таймфрейм")
+
+    aggregate = mapping[timeframe] // 60
+
+    url = f"{BASE_URL}?fsym={symbol}&tsym=USDT&limit={limit}&aggregate={aggregate}"
+    headers = {"authorization": f"Apikey {CRYPTOCOMPARE_API_KEY}"}
 
     try:
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
+        response = requests.get(url, headers=headers)
         data = response.json()
 
         if "Data" not in data or "Data" not in data["Data"]:
+            print(f"❌ Помилка завантаження OHLCV: {data}")
             return None
 
-        ohlcv = data["Data"]["Data"]
+        return data["Data"]["Data"]
+    except Exception as e:
+        print(f"❌ Помилка при запиті: {e}")
+        return None
 
-        closes = [candle["close"] for candle in ohlcv if candle["close"] > 0]
+def calculate_rsi(closes, period=14):
+    deltas = np.diff(closes)
+    seed = deltas[:period]
+    up = seed[seed > 0].sum() / period
+    down = -seed[seed < 0].sum() / period if seed[seed < 0].size > 0 else 0.001
+    rs = up / down
+    rsi = [100.0 - (100.0 / (1.0 + rs))]
 
-        if len(closes) < 20:
-            return None
+    for delta in deltas[period:]:
+        up_val = max(delta, 0)
+        down_val = -min(delta, 0)
+        up = (up * (period - 1) + up_val) / period
+        down = (down * (period - 1) + down_val) / period
+        rs = up / down if down != 0 else 0
+        rsi.append(100.0 - (100.0 / (1.0 + rs)))
+    return rsi[-1]
 
-        rsi = calculate_rsi(closes)
-        sma = calculate_sma(closes)
-        current_price = closes[-1]
+def calculate_sma(closes, period=20):
+    if len(closes) < period:
+        return None
+    return np.mean(closes[-period:])
 
-        # Рекомендації
-        if rsi > 70:
-            recommendation = "🔴 Перекупленість (можлива корекція)"
-        elif rsi < 30:
-            recommendation = "🟢 Перепроданість (можливе зростання)"
-        else:
-            recommendation = "⚪️ Очікування сигналу"
+def get_current_price(symbol: str):
+    url = f"https://min-api.cryptocompare.com/data/price?fsym={symbol.upper()}&tsyms=USDT"
+    headers = {"authorization": f"Apikey {CRYPTOCOMPARE_API_KEY}"}
 
-        indicators_str = (
-            f"🔍 Індикатори:\n"
-            f"• RSI: {rsi:.2f} ({'Перекупленість' if rsi > 70 else 'Перепроданість' if rsi < 30 else 'Нейтрально'})\n"
-            f"• SMA: {sma:.2f}\n"
-            f"• Рекомендація: {recommendation}"
-        )
+    try:
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        return data.get("USDT")
+    except Exception as e:
+        print(f"❌ Помилка отримання поточної ціни: {e}")
+        return None
 
-        # Точки входу та виходу
+async def analyze_crypto(symbol: str, timeframe: str):
+    ohlcv = fetch_ohlcv(symbol, timeframe)
+    if not ohlcv or len(ohlcv) < 30:
+        return None
+
+    closes = [candle["close"] for candle in ohlcv]
+
+    rsi = calculate_rsi(closes)
+    sma = calculate_sma(closes)
+
+    if sma is None:
+        return None
+
+    current_price = closes[-1]
+
+    # Сигнали
+    if rsi > 70:
+        signal = "🔴 Перекупленість"
+        recommendation = "Short"
+    elif rsi < 30:
+        signal = "🟢 Перепроданість"
+        recommendation = "Long"
+    else:
+        signal = "⚪️ Очікування сигналу"
+        recommendation = "Очікування"
+
+    # Рекомендовані точки
+    if recommendation == "Long":
+        entry_price = current_price * 0.99
+        exit_price = current_price * 1.03
+    elif recommendation == "Short":
         entry_price = current_price * 1.01
         exit_price = current_price * 0.97
+    else:
+        entry_price = current_price
+        exit_price = current_price
 
-        return indicators_str, entry_price, exit_price, rsi, sma, current_price
+    indicators_str = (
+        f"🔍 Індикатори:\n"
+        f"• RSI: {rsi:.2f} ({'Перепроданість' if rsi < 30 else 'Перекупленість' if rsi > 70 else 'Нейтрально'})\n"
+        f"• SMA: {sma:.2f}\n"
+        f"• Рекомендація: {signal}"
+    )
 
-    except Exception as e:
-        print(f"Помилка при завантаженні OHLCV: {e}")
-        return None
+    return indicators_str, entry_price, exit_price, rsi, sma
