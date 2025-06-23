@@ -47,7 +47,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
             await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
             return
 
-        indicators_str, current_price, entry_price, exit_price, rsi, sma = result
+       indicators_str, entry_price, exit_price, rsi, sma, ema, macd, macd_signal = result
 
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
