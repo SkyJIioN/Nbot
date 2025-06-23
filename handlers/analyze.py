@@ -1,64 +1,99 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes
+import requests
+import pandas as pd
+import numpy as np
+from datetime import datetime
 
-from services.market_data import analyze_crypto
+CRYPTOCOMPARE_API_KEY = "YOUR_API_KEY"
+BASE_URL = "https://min-api.cryptocompare.com/data/v2/histohour"
 
-# Список доступних таймфреймів
-TIMEFRAMES = {
-    "1H": "1h",
-    "4H": "4h",
-    "12H": "12h"
-}
-
-# Крок 1: Команда /analyze
-async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔎 Введіть символ монети для аналізу (наприклад, BTC, ETH, SOL):")
-
-# Крок 2: Ввід монети
-async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    symbol = update.message.text.strip().upper()
-    context.user_data["symbol"] = symbol
-
-    keyboard = [
-        [InlineKeyboardButton(tf, callback_data=f"tf_{TIMEFRAMES[tf]}")]
-        for tf in TIMEFRAMES
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text(
-        f"📈 Оберіть таймфрейм для {symbol}:",
-        reply_markup=reply_markup
-    )
-
-# Крок 3: Обробка вибору таймфрейму
-async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    timeframe = query.data.replace("tf_", "")
-    symbol = context.user_data.get("symbol")
-
-    await query.edit_message_text(f"⏳ Аналізую {symbol} на таймфреймі {timeframe.upper()}...")
-
+def get_ohlcv(symbol: str, timeframe: str = "1h", limit: int = 100):
     try:
-        result = await analyze_crypto(symbol, timeframe)
+        symbol = symbol.upper()
+        aggregate = {"1h": 1, "4h": 4, "12h": 12}.get(timeframe, 1)
+        url = f"{BASE_URL}?fsym={symbol}&tsym=USDT&limit={limit}&aggregate={aggregate}&api_key={CRYPTOCOMPARE_API_KEY}"
+        response = requests.get(url)
+        data = response.json()
 
-        if result is None:
-            await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
-            return
+        if data.get("Response") != "Success":
+            print(f"❌ Error fetching OHLCV data: {data.get('Message')}")
+            return None
 
-        indicators_str, entry_price, exit_price, rsi, sma, current_price = result
+        prices = data["Data"]["Data"]
+        if not prices or len(prices) < 20:
+            return None
 
-        response = (
-            f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
-            f"{indicators_str}\n"
-            f"💱 Поточна ціна: {current_price:.2f}$\n"
-            f"💰 Потенційна точка входу: {entry_price:.2f}$\n"
-            f"📈 Ціль для виходу: {exit_price:.2f}$\n"
-            f"🔁 RSI: {rsi:.2f}\n"
-            f"📊 SMA: {sma:.2f}"
-        )
-        await query.message.reply_text(response)
+        df = pd.DataFrame(prices)
+        df["time"] = pd.to_datetime(df["time"], unit="s")
+        df.set_index("time", inplace=True)
+        return df
 
     except Exception as e:
-        await query.message.reply_text(f"❌ Помилка при аналізі: {e}")
+        print(f"❌ Error loading OHLCV data: {e}")
+        return None
+
+def calculate_rsi(prices, period=14):
+    if len(prices) < period + 1:
+        return None
+    deltas = pd.Series(prices).diff().dropna()
+    gains = deltas.where(deltas > 0, 0.0)
+    losses = -deltas.where(deltas < 0, 0.0)
+
+    avg_gain = gains.rolling(window=period).mean()
+    avg_loss = losses.rolling(window=period).mean()
+
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+
+    return rsi.iloc[-1] if not rsi.empty else None
+
+def calculate_sma(prices, period=14):
+    if len(prices) < period:
+        return None
+    return pd.Series(prices).rolling(window=period).mean().iloc[-1]
+
+async def analyze_crypto(symbol: str, timeframe: str):
+    df = get_ohlcv(symbol, timeframe)
+    if df is None or df.empty:
+        return None
+
+    close = df["close"]
+    if close.isnull().any():
+        return None
+
+    current_price = float(close.iloc[-1])
+    rsi = calculate_rsi(close)
+    sma = calculate_sma(close)
+
+    if sma is None:
+        return None
+
+    # Визначаємо сигнал
+    signal = "Очікування сигналу"
+    if rsi is not None:
+        if rsi > 70:
+            signal = "🔴 Перекупленість — можливий Short"
+        elif rsi < 30:
+            signal = "🟢 Перепроданість — можливий Long"
+
+    # Точки входу/виходу
+    entry_price = current_price
+    exit_price = current_price * 1.015 if rsi and rsi < 30 else current_price * 0.985
+
+    # Форматування значень
+    rsi_display = f"{rsi:.2f}" if rsi is not None and not np.isnan(rsi) else "Н/Д"
+    sma_display = f"{sma:.2f}"
+    indicators_str = (
+        f"🔍 Індикатори:\n"
+        f"• RSI: {rsi_display} ({signal if rsi_display != 'Н/Д' else 'Н/Д'})\n"
+        f"• SMA: {sma_display}\n"
+        f"• Рекомендація: {signal}"
+    )
+
+    return (
+        indicators_str,
+        round(entry_price, 2),
+        round(exit_price, 2),
+        rsi_display,
+        sma_display,
+        round(current_price, 2)
+    )
