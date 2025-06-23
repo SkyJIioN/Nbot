@@ -1,7 +1,7 @@
 import requests
 import pandas as pd 
-import numpy as np from datetime 
-import datetime
+import numpy as np 
+from datetime import datetime
 
 API_KEY = "YOUR_CRYPTOCOMPARE_API_KEY"
 
