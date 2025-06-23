@@ -1,106 +1,114 @@
 import requests
 import pandas as pd
 import numpy as np
+from datetime import datetime
 
-API_KEY = "YOUR_CRYPTOCOMPARE_API_KEY"
+API_KEY = "ТВОЙ_API_KEY_CRYPTOCOMPARE"  # Заміни на свій реальний API ключ
 BASE_URL = "https://min-api.cryptocompare.com/data/v2/histohour"
 
-def get_ohlcv(symbol: str, timeframe: str):
-    limit_map = {"1h": 100, "4h": 100, "12h": 100}
-    aggregate_map = {"1h": 1, "4h": 4, "12h": 12}
-
-    if timeframe not in limit_map:
-        raise ValueError("Невідомий таймфрейм")
-
+def fetch_ohlcv_data(symbol: str, timeframe: str, limit: int = 100):
     params = {
         "fsym": symbol.upper(),
         "tsym": "USD",
-        "limit": limit_map[timeframe],
-        "aggregate": aggregate_map[timeframe],
+        "limit": limit,
         "api_key": API_KEY
     }
 
-    response = requests.get(BASE_URL, params=params)
-    data = response.json()
-
-    if data["Response"] != "Success":
-        raise ValueError(f"Помилка при завантаженні OHLCV: {data.get('Message', 'Unknown error')}")
-
-    df = pd.DataFrame(data["Data"]["Data"])
-    df["time"] = pd.to_datetime(df["time"], unit="s")
-    return df
-
-def calculate_indicators(df):
-    df["SMA"] = df["close"].rolling(window=14).mean()
-    df["EMA"] = df["close"].ewm(span=14, adjust=False).mean()
-
-    # RSI
-    delta = df["close"].diff()
-    gain = np.where(delta > 0, delta, 0)
-    loss = np.where(delta < 0, -delta, 0)
-    avg_gain = pd.Series(gain).rolling(window=14).mean()
-    avg_loss = pd.Series(loss).rolling(window=14).mean()
-    rs = avg_gain / avg_loss
-    df["RSI"] = 100 - (100 / (1 + rs))
-
-    # MACD
-    ema12 = df["close"].ewm(span=12, adjust=False).mean()
-    ema26 = df["close"].ewm(span=26, adjust=False).mean()
-    df["MACD"] = ema12 - ema26
-    df["Signal"] = df["MACD"].ewm(span=9, adjust=False).mean()
-
-    return df
-
-def generate_recommendation(df):
-    latest = df.iloc[-1]
-    price = latest["close"]
-    sma = latest["SMA"]
-    ema = latest["EMA"]
-    rsi = latest["RSI"]
-    macd = latest["MACD"]
-    signal = latest["Signal"]
-
-    rsi_state = "Нейтрально"
-    if rsi > 70:
-        rsi_state = "Перекупленість"
-    elif rsi < 30:
-        rsi_state = "Перепроданість"
-
-    # Рекомендація
-    if macd > signal and rsi < 70 and price > ema:
-        recommendation = "🟢 LONG"
-    elif macd < signal and rsi > 30 and price < ema:
-        recommendation = "🔴 SHORT"
+    if timeframe == "1h":
+        params["aggregate"] = 1
+    elif timeframe == "4h":
+        params["aggregate"] = 4
+    elif timeframe == "12h":
+        params["aggregate"] = 12
     else:
-        recommendation = "⚪️ Очікування сигналу"
+        print(f"❌ Невідомий таймфрейм: {timeframe}")
+        return None
 
-    return rsi_state, price, sma, ema, rsi, macd, signal, recommendation
-
-async def analyze_crypto(symbol: str, timeframe: str):
     try:
-        df = get_ohlcv(symbol, timeframe)
-        df = calculate_indicators(df)
+        response = requests.get(BASE_URL, params=params)
+        data = response.json()
 
-        if df.isnull().values.any():
+        if data.get("Response") != "Success":
+            print(f"❌ Помилка завантаження OHLCV: {data.get('Message')}")
             return None
 
-        rsi_state, price, sma, ema, rsi, macd, signal, recommendation = generate_recommendation(df)
+        ohlcv = data["Data"]["Data"]
+        if len(ohlcv) < 20:
+            print(f"⚠️ Недостатньо OHLCV-даних: {len(ohlcv)} для {symbol} {timeframe}")
+            return None
 
-        indicators_str = (
-            f"🔍 Індикатори:\n"
-            f"• RSI: {rsi:.2f} ({rsi_state})\n"
-            f"• SMA: {sma:.2f}\n"
-            f"• EMA: {ema:.2f}\n"
-            f"• MACD: {macd:.2f}\n"
-            f"• Signal Line: {signal:.2f}\n"
-            f"• Рекомендація: {recommendation}"
-        )
-
-        entry_price = price
-        exit_price = price * 1.01 if recommendation == "🟢 LONG" else price * 0.99
-
-        return indicators_str, price, entry_price, exit_price, rsi, sma
+        df = pd.DataFrame(ohlcv)
+        df["datetime"] = pd.to_datetime(df["time"], unit="s")
+        df.set_index("datetime", inplace=True)
+        df["close"] = df["close"]
+        return df
 
     except Exception as e:
-        print(f"❌ Помилка при аналізі: {e}")
+        print(f"❌ Виняток при отриманні OHLCV: {e}")
         return None
+
+def calculate_indicators(df):
+    try:
+        df["rsi"] = compute_rsi(df["close"])
+        df["sma"] = df["close"].rolling(window=14).mean()
+        df["ema"] = df["close"].ewm(span=14).mean()
+        df["macd"] = df["close"].ewm(span=12).mean() - df["close"].ewm(span=26).mean()
+        df["macd_signal"] = df["macd"].ewm(span=9).mean()
+        return df
+    except Exception as e:
+        print(f"❌ Помилка при розрахунку індикаторів: {e}")
+        return df
+
+def compute_rsi(series, period=14):
+    delta = series.diff()
+    gain = np.where(delta > 0, delta, 0)
+    loss = np.where(delta < 0, -delta, 0)
+
+    avg_gain = pd.Series(gain).rolling(window=period).mean()
+    avg_loss = pd.Series(loss).rolling(window=period).mean()
+
+    rs = avg_gain / (avg_loss + 1e-10)
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+def analyze_crypto(symbol: str, timeframe: str):
+    df = fetch_ohlcv_data(symbol, timeframe)
+    if df is None or df.empty:
+        return None
+
+    df = calculate_indicators(df)
+
+    if len(df) < 20 or pd.isna(df["rsi"].iloc[-1]):
+        print("⚠️ Недостатньо даних для аналізу.")
+        return None
+
+    latest = df.iloc[-1]
+
+    rsi = latest["rsi"]
+    sma = latest["sma"]
+    ema = latest["ema"]
+    macd = latest["macd"]
+    macd_signal = latest["macd_signal"]
+    current_price = latest["close"]
+
+    # Рекомендація на основі RSI
+    if rsi < 30:
+        signal = "🟢 Перепроданість — можливий LONG"
+    elif rsi > 70:
+        signal = "🔴 Перекупленість — можливий SHORT"
+    else:
+        signal = "⚪️ Очікування сигналу"
+
+    indicators_str = (
+        f"🔍 Індикатори:\n"
+        f"• RSI: {rsi:.2f} ({'Перепроданість' if rsi < 30 else 'Перекупленість' if rsi > 70 else 'Нейтрально'})\n"
+        f"• SMA: {sma:.2f}\n"
+        f"• EMA: {ema:.2f}\n"
+        f"• MACD: {macd:.2f}, Signal: {macd_signal:.2f}\n"
+        f"• Рекомендація: {signal}"
+    )
+
+    entry_price = float(current_price)
+    exit_price = entry_price * 1.015 if rsi < 30 else entry_price * 0.985 if rsi > 70 else entry_price
+
+    return indicators_str, entry_price, exit_price, rsi, sma, ema, macd, macd_signal
