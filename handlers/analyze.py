@@ -1,4 +1,4 @@
-ййfrom telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler, CommandHandler, MessageHandler, filters
 
 from services.market_data import analyze_crypto
