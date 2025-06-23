@@ -1,5 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, CallbackQueryHandler, CommandHandler, MessageHandler, filters
 
 from services.market_data import analyze_crypto
 
@@ -10,11 +10,11 @@ TIMEFRAMES = {
     "12H": "12h"
 }
 
-# Крок 1 — команда /analyze
+# Крок 1: Команда /analyze
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔎 Введіть символ монети для аналізу (наприклад, BTC, ETH, SOL):")
 
-# Крок 2 — введення символу
+# Крок 2: Обробка вводу монети
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
     context.user_data["symbol"] = symbol
@@ -30,7 +30,7 @@ async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE
         reply_markup=reply_markup
     )
 
-# Крок 3 — обробка таймфрейму
+# Крок 3: Обробка вибору таймфрейму
 async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -44,20 +44,21 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
         result = await analyze_crypto(symbol, timeframe)
 
         if result is None:
-            await query.message.reply_text(f"❌ Не вдалося отримати дані для {symbol}")
+            await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
             return
 
-        indicators_str, entry_price, exit_price, rsi, sma, current_price = result
+        indicators_str, current_price, entry_price, exit_price, rsi, sma = result
 
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
             f"{indicators_str}\n"
-            f"💱 Поточна ціна: {current_price}$\n"
-            f"💰 Потенційна точка входу: {entry_price}$\n"
-            f"📈 Ціль для виходу: {exit_price}$\n"
-            f"🔁 RSI: {rsi}\n"
-            f"📊 SMA: {sma}"
+            f"💱 Поточна ціна: {current_price:.2f}$\n"
+            f"💰 Потенційна точка входу: {entry_price:.2f}$\n"
+            f"📈 Ціль для виходу: {exit_price:.2f}$\n"
+            f"🔁 RSI: {rsi:.2f}\n"
+            f"📊 SMA: {sma:.2f}"
         )
+
         await query.message.reply_text(response)
 
     except Exception as e:
