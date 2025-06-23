@@ -2,7 +2,7 @@ import requests
 import pandas as pd
 import numpy as np
 
-CRYPTOCOMPARE_API_KEY = "YOUR_CRYPTOCOMPARE_API_KEY"
+API_KEY = "YOUR_CRYPTOCOMPARE_API_KEY"
 BASE_URL = "https://min-api.cryptocompare.com/data/v2/histohour"
 
 def get_ohlcv(symbol: str, timeframe: str):
