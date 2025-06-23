@@ -1,9 +1,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, CallbackQueryHandler, CommandHandler, MessageHandler, filters
-
+from telegram.ext import ContextTypes
 from services.market_data import analyze_crypto
 
-# Доступні таймфрейми
+# Список доступних таймфреймів
 TIMEFRAMES = {
     "1H": "1h",
     "4H": "4h",
@@ -14,7 +13,7 @@ TIMEFRAMES = {
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔎 Введіть символ монети для аналізу (наприклад, BTC, ETH, SOL):")
 
-# Крок 2: Обробка вводу монети
+# Крок 2: Ввід монети
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
     context.user_data["symbol"] = symbol
@@ -41,10 +40,10 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
     await query.edit_message_text(f"⏳ Аналізую {symbol} на таймфреймі {timeframe.upper()}...")
 
     try:
-        result = await analyze_crypto(symbol, timeframe)
+        result = analyze_crypto(symbol, timeframe)
 
         if result is None:
-            await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
+            await query.message.reply_text(f"⚠️ Недостатньо даних для аналізу.")
             return
 
         indicators_str, entry_price, exit_price, rsi, sma, ema, macd, macd_signal = result
@@ -58,7 +57,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
             f"🔁 RSI: {rsi:.2f}\n"
             f"📊 SMA: {sma:.2f}\n"
             f"📉 EMA: {ema:.2f}\n"
-            f"📊 MACD: {macd:.2f} / {macd_signal:.2f}"
+            f"📊 MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}"
         )
         await query.message.reply_text(response)
 
