@@ -3,15 +3,18 @@ from telegram.ext import ContextTypes
 
 from services.market_data import analyze_crypto
 
+# Список доступних таймфреймів
 TIMEFRAMES = {
     "1H": "1h",
     "4H": "4h",
     "12H": "12h"
 }
 
+# Крок 1: Команда /analyze
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔎 Введіть символ монети для аналізу (наприклад, BTC, ETH, SOL):")
 
+# Крок 2: Ввід монети
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
     context.user_data["symbol"] = symbol
@@ -23,10 +26,11 @@ async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        f"📊 Оберіть таймфрейм для {symbol}:",
+        f"📈 Оберіть таймфрейм для {symbol}:",
         reply_markup=reply_markup
     )
 
+# Крок 3: Обробка вибору таймфрейму
 async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -43,27 +47,16 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
             await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
             return
 
-        (
-            indicators_str,
-            current_price,
-            entry_price,
-            exit_price,
-            rsi,
-            sma,
-            ema,
-            macd,
-        ) = result
+        indicators_str, entry_price, exit_price, rsi, sma, current_price = result
 
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
             f"{indicators_str}\n"
             f"💱 Поточна ціна: {current_price:.2f}$\n"
-            f"💰 Вхід: {entry_price:.2f}$\n"
-            f"📈 Вихід: {exit_price:.2f}$\n"
+            f"💰 Потенційна точка входу: {entry_price:.2f}$\n"
+            f"📈 Ціль для виходу: {exit_price:.2f}$\n"
             f"🔁 RSI: {rsi:.2f}\n"
-            f"📊 SMA: {sma:.2f}\n"
-            f"📉 EMA: {ema:.2f}\n"
-            f"📊 MACD: {macd:.2f}"
+            f"📊 SMA: {sma:.2f}"
         )
         await query.message.reply_text(response)
 
