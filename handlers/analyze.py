@@ -41,13 +41,13 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
     await query.edit_message_text(f"⏳ Аналізую {symbol} на таймфреймі {timeframe.upper()}...")
 
     try:
-        result = analyze_crypto(symbol, timeframe)
+        result = await analyze_crypto(symbol, timeframe)
 
-        if result is None:
-            await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
+        if not result:
+            await query.message.reply_text(f"⚠️ Недостатньо даних для аналізу.")
             return
 
-        indicators_str, price, entry_price, exit_price = result
+        indicators_str, price, entry_price, exit_price, *_ = result
 
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
@@ -56,7 +56,6 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
             f"💰 Потенційна точка входу: {entry_price:.2f}$\n"
             f"📈 Ціль для виходу: {exit_price:.2f}$"
         )
-
         await query.message.reply_text(response)
 
     except Exception as e:
