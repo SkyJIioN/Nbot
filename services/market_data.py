@@ -93,4 +93,4 @@ def analyze_crypto(symbol: str, timeframe: str = "1h"):
         f"• Рекомендація: {recommendation}"
     )
 
-    return indicators_str, price, entry_price, exit_price, rsi, sma, ema, macd
+    indicators_str, price, entry_price, exit_price, *_ = result
