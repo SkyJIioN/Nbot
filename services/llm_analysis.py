@@ -1,9 +1,10 @@
-# llm_analysis.py
 import os
-import httpx
+import requests
+import numpy as np
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
+# Захист від NaN, None, inf
 def safe_format(value):
     try:
         if value is None or isinstance(value, str):
@@ -28,7 +29,8 @@ def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
 2. Зроби рекомендацію: LONG, SHORT або Очікувати.
 """
 
-async def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
+# 🔁 Функція СИНХРОННА, бо requests — не async
+def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
@@ -50,14 +52,14 @@ async def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, ma
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"].strip()
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
         return f"⚠️ Помилка від Groq: {e}"
