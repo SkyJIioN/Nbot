@@ -38,7 +38,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
     await query.edit_message_text(f"⏳ Аналізую {symbol} на таймфреймі {timeframe.upper()}...")
 
     try:
-        result = analyze_crypto(symbol, timeframe)
+        result = analyze_crypto(symbol, timeframe)  # <- без await
 
         if not result:
             await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
@@ -55,10 +55,10 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
             macd_signal
         ) = result
 
-        # 🧠 Викликаємо async-функцію з await
-        llm_response = await generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal)
+        llm_response = generate_signal_description(
+            symbol, timeframe, rsi, sma, ema, macd, macd_signal
+        )
 
-        # Формуємо відповідь
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
             f"{llm_response}\n"
