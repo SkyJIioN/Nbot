@@ -38,7 +38,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
     await query.edit_message_text(f"⏳ Аналізую {symbol} на таймфреймі {timeframe.upper()}...")
 
     try:
-        result = await analyze_crypto(symbol, timeframe)
+        result = analyze_crypto(symbol, timeframe)
 
         if not result:
             await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
