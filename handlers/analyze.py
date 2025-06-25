@@ -3,15 +3,18 @@ from telegram.ext import ContextTypes
 from services.market_data import analyze_crypto
 from services.llm_analysis import generate_signal_description
 
+# Список доступних таймфреймів
 TIMEFRAMES = {
     "1H": "1h",
     "4H": "4h",
     "12H": "12h"
 }
 
+# Крок 1: Команда /analyze
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔎 Введіть символ монети для аналізу (наприклад, BTC, ETH, SOL):")
 
+# Крок 2: Ввід монети
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
     context.user_data["symbol"] = symbol
@@ -25,6 +28,7 @@ async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
+# Крок 3: Обробка вибору таймфрейму
 async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -34,14 +38,13 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
     await query.edit_message_text(f"⏳ Аналізую {symbol} на таймфреймі {timeframe.upper()}...")
 
     try:
-        result = analyze_crypto(symbol, timeframe)
+        result = await analyze_crypto(symbol, timeframe)
 
         if not result:
             await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
             return
 
         (
-            indicators_str,
             current_price,
             entry_price,
             exit_price,
@@ -52,18 +55,21 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
             macd_signal
         ) = result
 
-        # Генерація опису через LLM
-        llm_response = await generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal)
+        # ⚠️ ВАЖЛИВО: виклик без `await`, бо функція синхронна
+        llm_response = generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal)
 
+        # Формуємо відповідь
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
-            f"{indicators_str}\n"
+            f"{llm_response}\n"
             f"💱 Поточна ціна: {current_price:.2f}$\n"
             f"💰 Потенційна точка входу: {entry_price:.2f}$\n"
             f"📈 Ціль для виходу: {exit_price:.2f}$\n"
-            f"🤖 LLM-аналітика: {llm_response}"
+            f"🔁 RSI: {rsi:.2f}\n"
+            f"📊 SMA: {sma:.2f}\n"
+            f"📉 EMA: {ema:.2f}\n"
+            f"📊 MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}"
         )
-
         await query.message.reply_text(response)
 
     except Exception as e:
