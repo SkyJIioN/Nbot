@@ -1,3 +1,4 @@
+# llm_analysis.py
 import os
 import requests
 
@@ -17,7 +18,7 @@ def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
 2. Зроби рекомендацію: LONG, SHORT або Очікувати.
 """
 
-async def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
+def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
