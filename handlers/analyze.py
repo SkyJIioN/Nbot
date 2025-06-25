@@ -44,17 +44,17 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
         if not result:
             await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
             return
-
         (
-            current_price,
-            entry_price,
-            exit_price,
-            rsi,
-            sma,
-            ema,
-            macd,
-            macd_signal
-        ) = result
+    indicators_str,
+    current_price,
+    entry_price,
+    exit_price,
+    rsi,
+    sma,
+    ema,
+    macd,
+    macd_signal
+) = result
 
         # Генерація опису на базі індикаторів
         llm_response = generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal)
