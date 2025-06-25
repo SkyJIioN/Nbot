@@ -60,16 +60,16 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
         llm_response = generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal)
 
         response = (
-            f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
-            f"{llm_response}\n"
-            f"💱 Поточна ціна: {current_price:.2f}$\n"
-            f"💰 Потенційна точка входу: {entry_price:.2f}$\n"
-            f"📈 Ціль для виходу: {exit_price:.2f}$\n"
-            f"🔁 RSI: {rsi:.2f}\n"
-            f"📊 SMA: {sma:.2f}\n"
-            f"📉 EMA: {ema:.2f}\n"
-            f"📊 MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}"
-        )
+    f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
+    f"{indicators_str}\n"  # додай цю стрічку
+    f"💱 Поточна ціна: {current_price:.2f}$\n"
+    f"💰 Потенційна точка входу: {entry_price:.2f}$\n"
+    f"📈 Ціль для виходу: {exit_price:.2f}$\n"
+    f"🔁 RSI: {rsi:.2f}\n"
+    f"📊 SMA: {sma:.2f}\n"
+    f"📉 EMA: {ema:.2f}\n"
+    f"📊 MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}"
+)
         await query.message.reply_text(response)
 
     except Exception as e:
