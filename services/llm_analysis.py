@@ -4,14 +4,24 @@ import httpx
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
+def safe_format(value):
+    try:
+        if value is None or isinstance(value, str):
+            return "N/A"
+        if np.isnan(value) or np.isinf(value):
+            return "N/A"
+        return f"{value:.2f}"
+    except:
+        return "N/A"
+
 def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
     return f"""
 Аналіз криптовалюти {symbol} на таймфреймі {timeframe.upper()} з технічними індикаторами:
-- RSI: {rsi:.2f}
-- SMA: {sma:.2f}
-- EMA: {ema:.2f}
-- MACD: {macd:.2f}
-- MACD Signal: {macd_signal:.2f}
+- RSI: {safe_format(rsi)}
+- SMA: {safe_format(sma)}
+- EMA: {safe_format(ema)}
+- MACD: {safe_format(macd)}
+- MACD Signal: {safe_format(macd_signal)}
 
 На основі цих даних коротко (1-2 речення) оціни ситуацію:
 1. Опиши стан ринку (наприклад, перекупленість, нейтрально, перепроданість).
