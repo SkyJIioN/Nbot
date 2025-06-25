@@ -53,7 +53,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
         ) = result
 
         # Генерація опису через LLM
-        llm_response = generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal)
+        llm_response = await generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal)
 
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
