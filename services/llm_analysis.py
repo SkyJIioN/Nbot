@@ -1,5 +1,6 @@
+# llm_analysis.py
 import os
-import requests
+import httpx
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -24,7 +25,7 @@ async def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, ma
     }
 
     payload = {
-        "model": "mixtral-8x7b-32768",  # Перевір, чи цей model доступний
+        "model": "mixtral-8x7b-32768",
         "messages": [
             {
                 "role": "system",
@@ -38,20 +39,15 @@ async def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, ma
         "temperature": 0.4
     }
 
-    # Виведемо payload перед запитом для перевірки
-    print(f"Payload: {payload}")
-
     try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=10
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data["choices"][0]["message"]["content"].strip()
-    except requests.exceptions.HTTPError as http_err:
-        return f"⚠️ Помилка від Groq: HTTP error occurred: {http_err}"
-    except Exception as err:
-        return f"⚠️ Помилка від Groq: {err}"
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        return f"⚠️ Помилка від Groq: {e}"
