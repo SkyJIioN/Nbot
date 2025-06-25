@@ -56,7 +56,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
     macd_signal
 ) = result
 
-        llm_response = generate_signal_description(
+        llm_response = await generate_signal_description(
             symbol, timeframe, rsi, sma, ema, macd, macd_signal
         )
 
