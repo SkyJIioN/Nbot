@@ -1,4 +1,3 @@
-# llm_analysis.py
 import os
 import requests
 
@@ -18,14 +17,14 @@ def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
 2. Зроби рекомендацію: LONG, SHORT або Очікувати.
 """
 
-def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
+async def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
 
     payload = {
-        "model": "mixtral-8x7b-32768",
+        "model": "mixtral-8x7b-32768",  # Перевір, чи цей model доступний
         "messages": [
             {
                 "role": "system",
@@ -39,6 +38,9 @@ def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_sig
         "temperature": 0.4
     }
 
+    # Виведемо payload перед запитом для перевірки
+    print(f"Payload: {payload}")
+
     try:
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
@@ -49,5 +51,7 @@ def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_sig
         response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        return f"⚠️ Помилка від Groq: {e}"
+    except requests.exceptions.HTTPError as http_err:
+        return f"⚠️ Помилка від Groq: HTTP error occurred: {http_err}"
+    except Exception as err:
+        return f"⚠️ Помилка від Groq: {err}"
