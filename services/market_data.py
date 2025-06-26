@@ -72,14 +72,11 @@ def calculate_indicators(df: pd.DataFrame):
     latest_signal = signal.iloc[-1]
 
     # Bollinger Bands
-    bollinger_sma = close.rolling(window=20).mean()
-    bollinger_std = close.rolling(window=20).std()
-    upper_band = bollinger_sma + (bollinger_std * 2)
-    lower_band = bollinger_sma - (bollinger_std * 2)
-    latest_upper_band = upper_band.iloc[-1]
-    latest_lower_band = lower_band.iloc[-1]
+    rolling_std = close.rolling(window=20).std()
+    bb_upper = latest_sma + 2 * rolling_std.iloc[-1]
+    bb_lower = latest_sma - 2 * rolling_std.iloc[-1]
 
-    # Сигнал
+    # Signal
     if latest_rsi < 30 and current_price > latest_ema:
         signal_text = "🟢 Можливий LONG"
     elif latest_rsi > 70 and current_price < latest_ema:
@@ -94,26 +91,18 @@ def calculate_indicators(df: pd.DataFrame):
         f"• EMA: {latest_ema:.2f}\n"
         f"• MACD: {latest_macd:.2f}\n"
         f"• MACD Signal: {latest_signal:.2f}\n"
-        f"• Bollinger Bands: Верхня {latest_upper_band:.2f}, Нижня {latest_lower_band:.2f}\n"
+        f"• BB Верхня: {bb_upper:.2f} / Нижня: {bb_lower:.2f}\n"
         f"• Рекомендація: {signal_text}"
     )
 
     entry_price = current_price
-    exit_price = current_price * 1.02 if signal_text == "🟢 Можливий LONG" else current_price * 0.98 if signal_text == "🔴 Можливий SHORT" else current_price
-
-    return (
-        indicators_str,
-        current_price,
-        entry_price,
-        exit_price,
-        latest_rsi,
-        latest_sma,
-        latest_ema,
-        latest_macd,
-        latest_signal,
-        latest_upper_band,
-        latest_lower_band
+    exit_price = (
+        current_price * 1.02 if signal_text == "🟢 Можливий LONG"
+        else current_price * 0.98 if signal_text == "🔴 Можливий SHORT"
+        else current_price
     )
+
+    return indicators_str, current_price, entry_price, exit_price, latest_rsi, latest_sma, latest_ema, latest_macd, latest_signal, bb_upper, bb_lower
 
 def analyze_crypto(symbol: str, timeframe: str):
     df = fetch_ohlcv(symbol, timeframe)
