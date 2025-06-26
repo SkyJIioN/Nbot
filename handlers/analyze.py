@@ -3,7 +3,7 @@ from telegram.ext import ContextTypes
 from services.market_data import analyze_crypto
 from services.llm_analysis import generate_signal_description
 
-# Список доступних таймфреймів
+# Доступні таймфрейми
 TIMEFRAMES = {
     "1H": "1h",
     "4H": "4h",
@@ -38,29 +38,32 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
     await query.edit_message_text(f"⏳ Аналізую {symbol} на таймфреймі {timeframe.upper()}...")
 
     try:
-        result = analyze_crypto(symbol, timeframe)  # <- без await
+        result = await analyze_crypto(symbol, timeframe)
 
         if not result:
             await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
             return
-(
-    indicators_str,
-    current_price,
-    entry_price,
-    exit_price,
-    rsi,
-    sma,
-    ema,
-    macd,
-    macd_signal,
-    bb_upper,
-    bb_lower
-) = result
 
-        llm_response = generate_signal_description(
+        (
+            indicators_str,
+            current_price,
+            entry_price,
+            exit_price,
+            rsi,
+            sma,
+            ema,
+            macd,
+            macd_signal,
+            bb_upper,
+            bb_lower
+        ) = result
+
+        # Генерація короткого аналізу від LLM (Groq)
+        llm_response = await generate_signal_description(
             symbol, timeframe, rsi, sma, ema, macd, macd_signal
         )
 
+        # Формуємо повідомлення
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
             f"{llm_response}\n"
@@ -70,9 +73,10 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
             f"🔁 RSI: {rsi:.2f}\n"
             f"📊 SMA: {sma:.2f}\n"
             f"📉 EMA: {ema:.2f}\n"
-            f"📊 MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}"
+            f"📊 MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}\n"
             f"📊 Bollinger Bands: Верхня {bb_upper:.2f}$ / Нижня {bb_lower:.2f}$"
         )
+
         await query.message.reply_text(response)
 
     except Exception as e:
