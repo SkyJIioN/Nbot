@@ -43,7 +43,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
         if not result:
             await query.message.reply_text("⚠️ Недостатньо даних для аналізу.")
             return
-    (
+(
     indicators_str,
     current_price,
     entry_price,
