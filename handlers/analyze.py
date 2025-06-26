@@ -72,6 +72,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
             f"📊 SMA: {sma:.2f}\n"
             f"📉 EMA: {ema:.2f}\n"
             f"📊 MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}"
+            f"📊 Bollinger Bands: Верхня {bb_upper:.2f}$ / Нижня {bb_lower:.2f}$"
         )
         await query.message.reply_text(response)
 
