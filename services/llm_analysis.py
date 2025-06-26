@@ -27,7 +27,7 @@ def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_sig
     prompt = build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal)
 
     payload = {
-        "model": "llama3-70b-8192"
+        "model": "llama3-70b-8192" 
         "messages": [
             {"role": "system", "content": "Ти досвідчений трейдер. Відповідай коротко українською."},
             {"role": "user", "content": prompt}
