@@ -16,7 +16,6 @@ def fetch_ohlcv(symbol: str, timeframe: str, limit: int = 100):
         "api_key": API_KEY
     }
 
-    # Переведення timeframe у годинний інтервал
     if timeframe == "1h":
         params["aggregate"] = 1
     elif timeframe == "4h":
@@ -72,6 +71,14 @@ def calculate_indicators(df: pd.DataFrame):
     latest_macd = macd.iloc[-1]
     latest_signal = signal.iloc[-1]
 
+    # Bollinger Bands
+    bollinger_sma = close.rolling(window=20).mean()
+    bollinger_std = close.rolling(window=20).std()
+    upper_band = bollinger_sma + (bollinger_std * 2)
+    lower_band = bollinger_sma - (bollinger_std * 2)
+    latest_upper_band = upper_band.iloc[-1]
+    latest_lower_band = lower_band.iloc[-1]
+
     # Сигнал
     if latest_rsi < 30 and current_price > latest_ema:
         signal_text = "🟢 Можливий LONG"
@@ -87,14 +94,26 @@ def calculate_indicators(df: pd.DataFrame):
         f"• EMA: {latest_ema:.2f}\n"
         f"• MACD: {latest_macd:.2f}\n"
         f"• MACD Signal: {latest_signal:.2f}\n"
+        f"• Bollinger Bands: Верхня {latest_upper_band:.2f}, Нижня {latest_lower_band:.2f}\n"
         f"• Рекомендація: {signal_text}"
     )
 
-    # Точки входу/виходу
     entry_price = current_price
     exit_price = current_price * 1.02 if signal_text == "🟢 Можливий LONG" else current_price * 0.98 if signal_text == "🔴 Можливий SHORT" else current_price
 
-    return indicators_str, current_price, entry_price, exit_price, latest_rsi, latest_sma, latest_ema, latest_macd, latest_signal
+    return (
+        indicators_str,
+        current_price,
+        entry_price,
+        exit_price,
+        latest_rsi,
+        latest_sma,
+        latest_ema,
+        latest_macd,
+        latest_signal,
+        latest_upper_band,
+        latest_lower_band
+    )
 
 def analyze_crypto(symbol: str, timeframe: str):
     df = fetch_ohlcv(symbol, timeframe)
