@@ -2,7 +2,8 @@ import os
 import requests
 import json
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY") or "тут_твій_ключ"  # заміни тут ключ
+# API-ключ Groq
+GROQ_API_KEY = os.getenv("GROQ_API_KEY") or "ТУТ_ТВОЙ_КЛЮЧ"
 
 def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
     return f"""
@@ -27,7 +28,7 @@ def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_sig
     prompt = build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal)
 
     payload = {
-        "model": "llama3-70b-8192" 
+        "model": "llama3-70b-8192",
         "messages": [
             {"role": "system", "content": "Ти досвідчений трейдер. Відповідай коротко українською."},
             {"role": "user", "content": prompt}
@@ -42,7 +43,8 @@ def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_sig
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers=headers,
-            json=payload
+            json=payload,
+            timeout=10
         )
 
         print("📨 Відповідь API:")
