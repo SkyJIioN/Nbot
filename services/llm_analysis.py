@@ -1,11 +1,11 @@
+import json
 import os
 import requests
-import json
 
-# API-ключ Groq
-GROQ_API_KEY = os.getenv("GROQ_API_KEY") or "ТУТ_ТВОЙ_КЛЮЧ"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
+
+def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal, trend_direction, support_level, resistance_level):
     return f"""
 Аналіз криптовалюти {symbol} на таймфреймі {timeframe.upper()} з технічними індикаторами:
 - RSI: {rsi:.2f}
@@ -13,48 +13,49 @@ def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
 - EMA: {ema:.2f}
 - MACD: {macd:.2f}
 - MACD Signal: {macd_signal:.2f}
+- Тренд: {trend_direction}
+- Лінія підтримки: {support_level:.2f}
+- Лінія опору: {resistance_level:.2f}
 
-На основі цих даних:
-1. Опиши ринкову ситуацію (перекупленість, нейтрально, перепроданість).
-2. Дай коротку рекомендацію: LONG, SHORT або Очікувати.
+На основі цих даних коротко (1-2 речення) оціни ситуацію:
+1. Опиши стан ринку (наприклад, перекупленість, нейтрально, перепроданість).
+2. Зроби рекомендацію: LONG, SHORT або Очікувати.
 """
 
-def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal):
+
+def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal, trend_direction, support_level, resistance_level):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
 
-    prompt = build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal)
-
     payload = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "Ти досвідчений трейдер. Відповідай коротко українською."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "Ти досвідчений трейдер-аналітик. Відповідай коротко українською."
+            },
+            {
+                "role": "user",
+                "content": build_prompt(
+                    symbol, timeframe, rsi, sma, ema, macd, macd_signal,
+                    trend_direction, support_level, resistance_level
+                )
+            }
         ],
         "temperature": 0.4
     }
 
     try:
-        print("🔍 Payload що відправляється:")
-        print(json.dumps(payload, indent=2, ensure_ascii=False))
-
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers=headers,
             json=payload,
             timeout=10
         )
-
-        print("📨 Відповідь API:")
-        print(response.status_code)
-        print(response.text)
-
         response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"].strip()
-
-    except requests.exceptions.HTTPError as e:
-        return f"⚠️ Помилка від Groq: {e}"
+        data = response.json()
+        return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        return f"⚠️ Невідома помилка: {e}"
+        return f"⚠️ Помилка від Groq: {e}"
