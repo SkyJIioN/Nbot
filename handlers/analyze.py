@@ -58,7 +58,7 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
         ) = result
 
         # Генерація аналітики з урахуванням тренду/підтримки/опору
-        llm_response = await generate_signal_description(
+        llm_response = generate_signal_description(
             symbol, timeframe, rsi, sma, ema, macd, macd_signal,
             trend, support, resistance
         )
