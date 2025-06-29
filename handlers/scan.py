@@ -40,10 +40,8 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Перевіряємо наявність чіткого сигналу
             if "LONG" in llm_response.upper() or "SHORT" in llm_response.upper():
                 results.append(
-                    f"📊 Аналіз {symbol}:
-"
-                    f"{llm_response}
-"
+                    f"📊 Аналіз {symbol}:"
+                    f"{llm_response}"
                     f"💱 Ціна: {current_price:.2f}$\n"
                     f"🔁 RSI: {rsi:.2f}, SMA: {sma:.2f}, EMA: {ema:.2f}\n"
                     f"📊 MACD: {macd:.2f}, Signal: {macd_signal:.2f}\n"
