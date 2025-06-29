@@ -12,7 +12,7 @@ async def on_startup():
     await app_telegram.initialize()
     print("✅ Telegram Application initialized")
 
-application.add_handler(CommandHandler("scan", scan_command)
+application.add_handler(CommandHandler("scan", scan_command))
 
 # Підключаємо маршрут вебхука
 app.include_router(webhook_router)
