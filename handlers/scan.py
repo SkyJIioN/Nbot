@@ -4,7 +4,7 @@ from services.market_data import analyze_crypto
 from services.llm_analysis import generate_signal_description
 
 # 👉 Монети, які будемо сканувати
-SYMBOLS = ["BTC", "ETH", "SOL", "APT", "BCH", "XRP", "LTC", "LINK"]
+SYMBOLS = ["BTC", "AAVE", "SOL", "APT", "TAO", "XRP", "LTC", "FARTCOIN"]
 TIMEFRAME = "1h"
 
 async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
