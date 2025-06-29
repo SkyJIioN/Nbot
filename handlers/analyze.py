@@ -12,7 +12,7 @@ TIMEFRAMES = {
 
 # Крок 1: Команда /analyze
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("\U0001F50E Введіть символ монети для аналізу (наприклад, BTC, ETH, SOL):")
+    await update.message.reply_text("🔎 Введіть символ монети для аналізу (наприклад, BTC, ETH, SOL):")
 
 # Крок 2: Ввід монети
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -24,7 +24,7 @@ async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE
         for tf in TIMEFRAMES
     ]
     await update.message.reply_text(
-        f"\U0001F4C8 Оберіть таймфрейм для {symbol}:",
+        f"📈 Оберіть таймфрейм для {symbol}:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -55,26 +55,28 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
             macd,
             macd_signal,
             bb_upper,
-            bb_lower
+            bb_lower,
+            vwap
         ) = result
 
         # Генерація короткого аналізу від LLM (Groq)
-        llm_response = generate_signal_description(
+        llm_response = await generate_signal_description(
             symbol, timeframe, rsi, sma, ema, macd, macd_signal
         )
 
         # Формуємо повідомлення
         response = (
-            f"\U0001F4CA Аналіз {symbol} ({timeframe.upper()}):\n"
+            f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
             f"{llm_response}\n"
-            f"\U0001F4B1 Поточна ціна: {current_price:.2f}$\n"
-            f"\U0001F4B0 Потенційна точка входу: {entry_price:.2f}$\n"
-            f"\U0001F4C8 Ціль для виходу: {exit_price:.2f}$\n"
+            f"💱 Поточна ціна: {current_price:.2f}$\n"
+            f"💰 Потенційна точка входу: {entry_price:.2f}$\n"
+            f"📈 Ціль для виходу: {exit_price:.2f}$\n"
             f"🔁 RSI: {rsi:.2f}\n"
             f"📊 SMA: {sma:.2f}\n"
             f"📉 EMA: {ema:.2f}\n"
             f"📊 MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}\n"
-            f"📊 Bollinger Bands: Верхня {bb_upper:.2f}$ / Нижня {bb_lower:.2f}$"
+            f"📊 Bollinger Bands: Верхня {bb_upper:.2f}$ / Нижня {bb_lower:.2f}$\n"
+            f"📐 VWAP: {vwap:.2f}$"
         )
 
         await query.message.reply_text(response)
