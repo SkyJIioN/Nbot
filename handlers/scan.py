@@ -3,13 +3,15 @@ from telegram.ext import ContextTypes
 from services.market_data import analyze_crypto
 from services.llm_analysis import generate_signal_description
 
-async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
-    symbols = [s.strip().replace('"', '').replace("'", '').upper() for s in text.split(",")]
+# Фіксований список монет
+MONETS = ["BTC", "ETH", "SOL", "APT", "BCH", "XRP"]
 
-    responses = []
-    for symbol in symbols:
-        result = analyze_crypto(symbol, "1h")
+async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    timeframe = "1h"
+    messages = []
+
+    for symbol in MONETS:
+        result = analyze_crypto(symbol, timeframe)
         if not result:
             continue
 
@@ -30,16 +32,17 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             resistance
         ) = result
 
-        llm_response = generate_signal_description(
-            symbol, "1h", rsi, sma, ema, macd, macd_signal, trend, support, resistance
+        llm_response = await generate_signal_description(
+            symbol, timeframe, rsi, sma, ema, macd, macd_signal,
+            trend, support, resistance
         )
 
         if "LONG" in llm_response or "SHORT" in llm_response:
-            message = (
-                f"📊 Аналіз {symbol} (1H):\n"
+            response = (
+                f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
                 f"{llm_response}\n"
                 f"💱 Поточна ціна: {current_price:.2f}$\n"
-                f"📉 Тренд: {trend}\n"
+                f"📉 Тренд: {trend.capitalize()}\n"
                 f"🔻 Лінія підтримки: {support:.2f}$\n"
                 f"🔺 Лінія опору: {resistance:.2f}$\n"
                 f"💰 Точка входу: {entry_price:.2f}$\n"
@@ -50,10 +53,10 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"📊 MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}\n"
                 f"📊 Bollinger Bands: Верхня {bb_upper:.2f}$ / Нижня {bb_lower:.2f}$"
             )
-            responses.append(message)
+            messages.append(response)
 
-    if responses:
-        for msg in responses:
+    if messages:
+        for msg in messages:
             await update.message.reply_text(msg)
     else:
         await update.message.reply_text("⚠️ Немає чітких сигналів (LONG або SHORT) серед заданих монет.")
