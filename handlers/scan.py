@@ -30,7 +30,7 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             resistance
         ) = result
 
-        llm_response = await generate_signal_description(
+        llm_response = generate_signal_description(
             symbol, "1h", rsi, sma, ema, macd, macd_signal, trend, support, resistance
         )
 
