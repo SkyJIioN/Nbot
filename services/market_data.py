@@ -28,9 +28,13 @@ def fetch_ohlcv(symbol: str, timeframe: str, limit: int = 100):
     try:
         response = requests.get(url, params=params)
         response.raise_for_status()
-        data = response.json()["Data"]["Data"]
+        data = response.json()
 
-        df = pd.DataFrame(data)
+        if "Data" not in data or "Data" not in data["Data"]:
+            print("❌ API не повернуло OHLCV-дані:", data)
+            return None
+
+        df = pd.DataFrame(data["Data"]["Data"])
         df["timestamp"] = pd.to_datetime(df["time"], unit="s")
         df.set_index("timestamp", inplace=True)
         return df
