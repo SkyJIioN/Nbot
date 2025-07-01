@@ -40,7 +40,7 @@ def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal, bb_upper, 
 """
 
 
-def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal, bb_upper, bb_lower, trend, support, resistance):
+async def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal, trend, support, resistance):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
