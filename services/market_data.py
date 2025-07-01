@@ -45,6 +45,8 @@ def calculate_indicators(df: pd.DataFrame):
     close = df["close"]
     current_price = close.iloc[-1]
 
+    # === Індикатори ===
+
     # RSI
     delta = close.diff()
     gain = delta.where(delta > 0, 0)
@@ -72,47 +74,64 @@ def calculate_indicators(df: pd.DataFrame):
     latest_signal = signal.iloc[-1]
 
     # Bollinger Bands
-    rolling_mean = close.rolling(window=20).mean()
-    rolling_std = close.rolling(window=20).std()
-    bb_upper = rolling_mean + (rolling_std * 2)
-    bb_lower = rolling_mean - (rolling_std * 2)
+    bb_middle = close.rolling(window=20).mean()
+    bb_std = close.rolling(window=20).std()
+    bb_upper = bb_middle + 2 * bb_std
+    bb_lower = bb_middle - 2 * bb_std
     latest_bb_upper = bb_upper.iloc[-1]
     latest_bb_lower = bb_lower.iloc[-1]
 
-    # Trend line (підтримка/опір)
-    last_50 = close[-50:]
-    support = min(last_50)
-    resistance = max(last_50)
-    trend = "Висхідний" if close.iloc[-1] > close.iloc[-50] else "Нисхідний"
+    # === Тренд + підтримка/опір ===
+    last_50 = df.tail(50)
+    high = last_50["high"]
+    low = last_50["low"]
+    support = low.min()
+    resistance = high.max()
+    trend_direction = "Висхідний" if current_price > sma.mean() else "Нисхідний"
 
-    # Entry/Exit will be predicted by LLM
+    # === Сигнал на основі RSI + EMA ===
+    if latest_rsi < 30 and current_price > latest_ema:
+        signal_text = "🟢 Можливий LONG"
+        entry_price = current_price
+        exit_price = current_price * 1.02
+    elif latest_rsi > 70 and current_price < latest_ema:
+        signal_text = "🔴 Можливий SHORT"
+        entry_price = current_price
+        exit_price = current_price * 0.98
+    else:
+        signal_text = "⚪️ Очікування сигналу"
+        entry_price = current_price
+        exit_price = current_price
 
+    # === Формуємо короткий текст індикаторів ===
     indicators_str = (
         f"🔍 Індикатори:\n"
-        f"• RSI: {latest_rsi:.2f}\n"
+        f"• RSI: {latest_rsi:.2f} ({'Перепроданість' if latest_rsi < 30 else 'Перекупленість' if latest_rsi > 70 else 'Нейтрально'})\n"
         f"• SMA: {latest_sma:.2f}\n"
         f"• EMA: {latest_ema:.2f}\n"
         f"• MACD: {latest_macd:.2f}\n"
         f"• MACD Signal: {latest_signal:.2f}\n"
-        f"• Bollinger Bands: Верхня {latest_bb_upper:.2f}$ / Нижня {latest_bb_lower:.2f}$"
+        f"• Bollinger Bands: Верхня {latest_bb_upper:.2f} / Нижня {latest_bb_lower:.2f}\n"
+        f"• Рекомендація: {signal_text}"
     )
 
+    # === Повертаємо 14 значень ===
     return (
-    indicators_str,
-    current_price,
-    entry_price,
-    exit_price,
-    rsi,
-    sma,
-    ema,
-    macd,
-    macd_signal,
-    bb_upper,
-    bb_lower,
-    trend,
-    support,
-    resistance
-)
+        indicators_str,
+        current_price,
+        entry_price,
+        exit_price,
+        latest_rsi,
+        latest_sma,
+        latest_ema,
+        latest_macd,
+        latest_signal,
+        latest_bb_upper,
+        latest_bb_lower,
+        trend_direction,
+        support,
+        resistance
+    )
 
 def analyze_crypto(symbol: str, timeframe: str):
     df = fetch_ohlcv(symbol, timeframe)
