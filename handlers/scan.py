@@ -33,8 +33,7 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ) = result
 
         llm_response = generate_signal_description(
-            symbol, timeframe, rsi, sma, ema, macd, macd_signal,
-            trend, support, resistance
+            symbol, timeframe, rsi, sma, ema, macd, macd_signal, trend, support, resistance
         )
 
         if "LONG" in llm_response or "SHORT" in llm_response:
