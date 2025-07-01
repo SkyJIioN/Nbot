@@ -11,7 +11,7 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     messages = []
 
     for symbol in MONETS:
-        result = analyze_crypto(symbol, timeframe)
+        result = await analyze_crypto(symbol, timeframe)
         if not result:
             continue
 
@@ -32,7 +32,7 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             resistance
         ) = result
 
-        llm_response = await  generate_signal_description(
+        llm_response = await generate_signal_description(
             symbol, timeframe, rsi, sma, ema, macd, macd_signal,
             trend, support, resistance
         )
