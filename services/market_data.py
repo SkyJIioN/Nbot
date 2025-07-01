@@ -28,31 +28,15 @@ def fetch_ohlcv(symbol: str, timeframe: str, limit: int = 100):
     try:
         response = requests.get(url, params=params)
         response.raise_for_status()
-        data = response.json()
+        data = response.json()["Data"]["Data"]
 
-        if "Data" not in data or "Data" not in data["Data"]:
-            print("❌ API не повернуло OHLCV-дані:", data)
-            return None
-
-        df = pd.DataFrame(data["Data"]["Data"])
+        df = pd.DataFrame(data)
         df["timestamp"] = pd.to_datetime(df["time"], unit="s")
         df.set_index("timestamp", inplace=True)
         return df
     except Exception as e:
         print(f"Помилка при завантаженні OHLCV: {e}")
         return None
-
-def calculate_trendlines(df: pd.DataFrame):
-    closes = df["close"][-50:]
-    minima = closes[(closes.shift(1) > closes) & (closes.shift(-1) > closes)]
-    maxima = closes[(closes.shift(1) < closes) & (closes.shift(-1) < closes)]
-
-    support = minima.min() if not minima.empty else closes.min()
-    resistance = maxima.max() if not maxima.empty else closes.max()
-
-    trend = "висхідний" if closes.iloc[-1] > closes.iloc[0] else "низхідний" if closes.iloc[-1] < closes.iloc[0] else "флет"
-
-    return trend, support, resistance
 
 def calculate_indicators(df: pd.DataFrame):
     if len(df) < 50:
@@ -61,6 +45,7 @@ def calculate_indicators(df: pd.DataFrame):
     close = df["close"]
     current_price = close.iloc[-1]
 
+    # RSI
     delta = close.diff()
     gain = delta.where(delta > 0, 0)
     loss = -delta.where(delta < 0, 0)
@@ -70,12 +55,15 @@ def calculate_indicators(df: pd.DataFrame):
     rsi = 100 - (100 / (1 + rs))
     latest_rsi = rsi.iloc[-1]
 
+    # SMA
     sma = close.rolling(window=20).mean()
     latest_sma = sma.iloc[-1]
 
+    # EMA
     ema = close.ewm(span=20, adjust=False).mean()
     latest_ema = ema.iloc[-1]
 
+    # MACD
     exp1 = close.ewm(span=12, adjust=False).mean()
     exp2 = close.ewm(span=26, adjust=False).mean()
     macd = exp1 - exp2
@@ -83,48 +71,42 @@ def calculate_indicators(df: pd.DataFrame):
     latest_macd = macd.iloc[-1]
     latest_signal = signal.iloc[-1]
 
-    std = close.rolling(window=20).std()
-    bb_upper = latest_sma + (2 * std.iloc[-1])
-    bb_lower = latest_sma - (2 * std.iloc[-1])
+    # Bollinger Bands
+    rolling_mean = close.rolling(window=20).mean()
+    rolling_std = close.rolling(window=20).std()
+    bb_upper = rolling_mean + (rolling_std * 2)
+    bb_lower = rolling_mean - (rolling_std * 2)
+    latest_bb_upper = bb_upper.iloc[-1]
+    latest_bb_lower = bb_lower.iloc[-1]
 
-    signal_text = (
-        "🟢 Можливий LONG" if latest_rsi < 30 and current_price > latest_ema
-        else "🔴 Можливий SHORT" if latest_rsi > 70 and current_price < latest_ema
-        else "⚪️ Очікування сигналу"
-    )
+    # Trend line (підтримка/опір)
+    last_50 = close[-50:]
+    support = min(last_50)
+    resistance = max(last_50)
+    trend = "Висхідний" if close.iloc[-1] > close.iloc[-50] else "Нисхідний"
+
+    # Entry/Exit will be predicted by LLM
 
     indicators_str = (
         f"🔍 Індикатори:\n"
-        f"• RSI: {latest_rsi:.2f} ({'Перепроданість' if latest_rsi < 30 else 'Перекупленість' if latest_rsi > 70 else 'Нейтрально'})\n"
+        f"• RSI: {latest_rsi:.2f}\n"
         f"• SMA: {latest_sma:.2f}\n"
         f"• EMA: {latest_ema:.2f}\n"
         f"• MACD: {latest_macd:.2f}\n"
         f"• MACD Signal: {latest_signal:.2f}\n"
-        f"• Bollinger Bands: Верхня {bb_upper:.2f} / Нижня {bb_lower:.2f}\n"
-        f"• Рекомендація: {signal_text}"
+        f"• Bollinger Bands: Верхня {latest_bb_upper:.2f}$ / Нижня {latest_bb_lower:.2f}$"
     )
-
-    entry_price = current_price
-    exit_price = (
-        current_price * 1.02 if signal_text == "🟢 Можливий LONG"
-        else current_price * 0.98 if signal_text == "🔴 Можливий SHORT"
-        else current_price
-    )
-
-    trend, support, resistance = calculate_trendlines(df)
 
     return (
         indicators_str,
         current_price,
-        entry_price,
-        exit_price,
         latest_rsi,
         latest_sma,
         latest_ema,
         latest_macd,
         latest_signal,
-        bb_upper,
-        bb_lower,
+        latest_bb_upper,
+        latest_bb_lower,
         trend,
         support,
         resistance
