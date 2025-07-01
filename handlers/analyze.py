@@ -3,15 +3,18 @@ from telegram.ext import ContextTypes
 from services.market_data import analyze_crypto
 from services.llm_analysis import generate_signal_description
 
+# Доступні таймфрейми
 TIMEFRAMES = {
     "1H": "1h",
     "4H": "4h",
     "12H": "12h"
 }
 
+# Крок 1: Команда /analyze
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔎 Введіть символ монети для аналізу (наприклад, BTC, ETH, SOL):")
 
+# Крок 2: Ввід монети
 async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     symbol = update.message.text.strip().upper()
     context.user_data["symbol"] = symbol
@@ -25,6 +28,7 @@ async def handle_symbol_input(update: Update, context: ContextTypes.DEFAULT_TYPE
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
+# Крок 3: Обробка вибору таймфрейму
 async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -57,17 +61,17 @@ async def handle_timeframe_selection(update: Update, context: ContextTypes.DEFAU
             resistance
         ) = result
 
-        # Генерація аналітики з урахуванням тренду/підтримки/опору
-        llm_response = generate_signal_description(
-    symbol, timeframe, rsi, sma, ema, macd, macd_signal, trend, support, resistance
-)
+        # Генерація короткого аналізу від LLM (Groq)
+        llm_response = await generate_signal_description(
+            symbol, timeframe, rsi, sma, ema, macd, macd_signal, trend, support, resistance
+        )
 
-        # Повідомлення користувачу
+        # Формуємо повідомлення
         response = (
             f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
             f"{llm_response}\n"
             f"💱 Поточна ціна: {current_price:.2f}$\n"
-            f"📉 Тренд: {trend.capitalize()}\n"
+            f"📉 Тренд: {trend}\n"
             f"🔻 Лінія підтримки: {support:.2f}$\n"
             f"🔺 Лінія опору: {resistance:.2f}$\n"
             f"💰 Точка входу: {entry_price:.2f}$\n"
