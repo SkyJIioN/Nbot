@@ -43,16 +43,7 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"\U0001F4CA Аналіз {symbol} ({timeframe.upper()}):\n"
                 f"{llm_response}\n"
                 f"\U0001F4B1 Поточна ціна: {current_price:.2f}$\n"
-                f"\U0001F4C9 Тренд: {trend.capitalize()}\n"
-                f"\U0001F53B Лінія підтримки: {support:.2f}$\n"
-                f"\U0001F53A Лінія опору: {resistance:.2f}$\n"
-                f"\U0001F4B0 Точка входу: {entry_price:.2f}$\n"
-                f"\U0001F4C8 Точка виходу: {exit_price:.2f}$\n"
-                f"\U0001F501 RSI: {rsi:.2f}\n"
-                f"\U0001F4CA SMA: {sma:.2f}\n"
-                f"\U0001F4C9 EMA: {ema:.2f}\n"
-                f"\U0001F4CA MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}\n"
-                f"\U0001F4CA Bollinger Bands: Верхня {bb_upper:.2f}$ / Нижня {bb_lower:.2f}$"
+                
             )
             messages.append(response)
 
