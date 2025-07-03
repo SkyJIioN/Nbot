@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-API_KEY = "ТВОЙ_CRYPTOCOMPARE_API_KEY"  # заміни на свій
+API_KEY = "ТВОЙ_CRYPTOCOMPARE_API_KEY"  # Замініть на ваш ключ
 BASE_URL = "https://min-api.cryptocompare.com/data/v2/histohour"
 
 def fetch_ohlcv(symbol: str, timeframe: str, limit: int = 100):
@@ -45,8 +45,6 @@ def calculate_indicators(df: pd.DataFrame):
     close = df["close"]
     current_price = close.iloc[-1]
 
-    # === Індикатори ===
-
     # RSI
     delta = close.diff()
     gain = delta.where(delta > 0, 0)
@@ -57,12 +55,10 @@ def calculate_indicators(df: pd.DataFrame):
     rsi = 100 - (100 / (1 + rs))
     latest_rsi = rsi.iloc[-1]
 
-    # SMA
+    # SMA & EMA
     sma = close.rolling(window=20).mean()
-    latest_sma = sma.iloc[-1]
-
-    # EMA
     ema = close.ewm(span=20, adjust=False).mean()
+    latest_sma = sma.iloc[-1]
     latest_ema = ema.iloc[-1]
 
     # MACD
@@ -74,64 +70,45 @@ def calculate_indicators(df: pd.DataFrame):
     latest_signal = signal.iloc[-1]
 
     # Bollinger Bands
-    bb_middle = close.rolling(window=20).mean()
-    bb_std = close.rolling(window=20).std()
-    bb_upper = bb_middle + 2 * bb_std
-    bb_lower = bb_middle - 2 * bb_std
+    std = close.rolling(window=20).std()
+    bb_upper = sma + 2 * std
+    bb_lower = sma - 2 * std
     latest_bb_upper = bb_upper.iloc[-1]
     latest_bb_lower = bb_lower.iloc[-1]
 
-    # === Тренд + підтримка/опір ===
-    last_50 = df.tail(50)
-    high = last_50["high"]
-    low = last_50["low"]
-    support = low.min()
-    resistance = high.max()
-    trend_direction = "Висхідний" if current_price > sma.mean() else "Нисхідний"
+    # Trend detection
+    trend_slope = np.polyfit(range(50), close[-50:], 1)[0]
+    trend = "висхідний" if trend_slope > 0 else "нисхідний" if trend_slope < 0 else "флет"
 
-    # === Сигнал на основі RSI + EMA ===
-    if latest_rsi < 30 and current_price > latest_ema:
-        signal_text = "🟢 Можливий LONG"
-        entry_price = current_price
-        exit_price = current_price * 1.02
-    elif latest_rsi > 70 and current_price < latest_ema:
-        signal_text = "🔴 Можливий SHORT"
-        entry_price = current_price
-        exit_price = current_price * 0.98
-    else:
-        signal_text = "⚪️ Очікування сигналу"
-        entry_price = current_price
-        exit_price = current_price
+    # Support/resistance
+    support = min(close[-10:])
+    resistance = max(close[-10:])
 
-    # === Формуємо короткий текст індикаторів ===
+    # Entry/exit (опціонально, можна залишити як є)
+    entry_price = current_price
+    exit_price = current_price * 1.02 if latest_rsi < 30 else current_price * 0.98 if latest_rsi > 70 else current_price
+
+    # Строка індикаторів (не обов'язково використовувати)
     indicators_str = (
-        f"🔍 Індикатори:\n"
-        f"• RSI: {latest_rsi:.2f} ({'Перепроданість' if latest_rsi < 30 else 'Перекупленість' if latest_rsi > 70 else 'Нейтрально'})\n"
-        f"• SMA: {latest_sma:.2f}\n"
-        f"• EMA: {latest_ema:.2f}\n"
-        f"• MACD: {latest_macd:.2f}\n"
-        f"• MACD Signal: {latest_signal:.2f}\n"
-        f"• Bollinger Bands: Верхня {latest_bb_upper:.2f} / Нижня {latest_bb_lower:.2f}\n"
-        f"• Рекомендація: {signal_text}"
+        f"RSI: {latest_rsi:.2f}, SMA: {latest_sma:.2f}, EMA: {latest_ema:.2f}, MACD: {latest_macd:.2f}, Signal: {latest_signal:.2f}"
     )
 
-    # === Повертаємо 14 значень ===
     return (
-    indicators_str,
-    current_price,
-    entry_price,
-    exit_price,
-    latest_rsi,
-    latest_sma,
-    latest_ema,
-    latest_macd,
-    latest_signal,
-    bb_upper,
-    bb_lower,
-    trend,
-    support,
-    resistance
-)
+        indicators_str,
+        current_price,
+        entry_price,
+        exit_price,
+        latest_rsi,
+        latest_sma,
+        latest_ema,
+        latest_macd,
+        latest_signal,
+        latest_bb_upper,
+        latest_bb_lower,
+        trend,
+        support,
+        resistance
+    )
 
 def analyze_crypto(symbol: str, timeframe: str):
     df = fetch_ohlcv(symbol, timeframe)
