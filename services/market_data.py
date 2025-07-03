@@ -117,21 +117,21 @@ def calculate_indicators(df: pd.DataFrame):
 
     # === Повертаємо 14 значень ===
     return (
-        indicators_str,
-        current_price,
-        entry_price,
-        exit_price,
-        latest_rsi,
-        latest_sma,
-        latest_ema,
-        latest_macd,
-        latest_signal,
-        latest_bb_upper,
-        latest_bb_lower,
-        trend_direction,
-        support,
-        resistance
-    )
+    indicators_str,
+    current_price,
+    entry_price,
+    exit_price,
+    latest_rsi,
+    latest_sma,
+    latest_ema,
+    latest_macd,
+    latest_signal,
+    bb_upper,
+    bb_lower,
+    trend,
+    support,
+    resistance
+)
 
 def analyze_crypto(symbol: str, timeframe: str):
     df = fetch_ohlcv(symbol, timeframe)
