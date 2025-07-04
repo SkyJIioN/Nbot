@@ -1,22 +1,11 @@
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    CallbackQueryHandler,
-    filters,
-)
-from handlers.analyze import analyze_command, handle_symbol_input, handle_timeframe_selection
 import os
+from telegram.ext import ApplicationBuilder
 
-TOKEN = os.getenv("TELEGRAM_TOKEN")
+# Завантаження токена з середовища (Render -> Environment)
+BOT_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-app_telegram = ApplicationBuilder().token(TOKEN).build()
+if not BOT_TOKEN:
+    raise ValueError("TELEGRAM_TOKEN не встановлений у середовищі!")
 
-# Команда /analyze
-app_telegram.add_handler(CommandHandler("analyze", analyze_command))
-
-# Обробка введення монети (наприклад BTC, ETH)
-app_telegram.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_symbol_input))
-
-# Обробка вибору таймфрейму
-app_telegram.add_handler(CallbackQueryHandler(handle_timeframe_selection, pattern="^tf_"))
+# Створення Telegram Application
+app_telegram = ApplicationBuilder().token(BOT_TOKEN).build()
