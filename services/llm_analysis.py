@@ -9,14 +9,14 @@ def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal, bb_upper, 
     return f"""
 Ціна {symbol}: {price} USD
 Технічні індикатори на таймфреймі {timeframe.upper()}:
-- RSI: {rsi:.2f}
-- SMA: {sma:.2f}
-- EMA: {ema:.2f}
-- MACD: {macd:.2f}
-- MACD Signal: {macd_signal:.2f}
-- Bollinger Bands: Верхня {bb_upper:.2f}, Нижня {bb_lower:.2f}
+- RSI: {rsi:.5f}
+- SMA: {sma:.5f}
+- EMA: {ema:.5f}
+- MACD: {macd:.5f}
+- MACD Signal: {macd_signal:.5f}
+- Bollinger Bands: Верхня {bb_upper:.5f}, Нижня {bb_lower:.5f}
 - Тренд: {trend}
-- Лінія підтримки: {support:.2f}, Лінія опору: {resistance:.2f}
+- Лінія підтримки: {support:.5f}, Лінія опору: {resistance:.5f}
 
 На основі цих даних, зроби короткий технічний аналіз і сформуй чітку торгову стратегію.
 Відповідай у форматі JSON:
