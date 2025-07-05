@@ -1,37 +1,56 @@
+# llm_analysis.py
 import os
 import requests
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal, bb_upper, bb_lower, trend, support, resistance):
-    return f"""
-Технічний аналіз криптовалюти {symbol} на таймфреймі {timeframe.upper()}:
 
+def build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal, bb_upper, bb_lower, trend, support, resistance, price):
+    return f"""
+Криптовалюта: {symbol}
+Таймфрейм: {timeframe.upper()}
+
+Індикатори:
+- Поточна ціна: {price:.2f}
 - RSI: {rsi:.2f}
 - SMA: {sma:.2f}
 - EMA: {ema:.2f}
-- MACD: {macd:.2f}, сигнальна: {macd_signal:.2f}
-- Bollinger Bands: Верхня межа {bb_upper:.2f}, нижня межа {bb_lower:.2f}
+- MACD: {macd:.2f}
+- MACD Signal: {macd_signal:.2f}
+- Bollinger Bands: Верхня {bb_upper:.2f}, Нижня {bb_lower:.2f}
 - Тренд: {trend}
 - Лінія підтримки: {support:.2f}
 - Лінія опору: {resistance:.2f}
 
-На основі цих індикаторів:
-1. Сформулюй поточну ринкову ситуацію.
-2. Визнач оптимальну позицію (LONG або SHORT).
-3. Запропонуй точку входу, тейк-профіт, стоп-лосс.
-4. Оціни орієнтовний час відпрацювання (в годинах).
-5. Відповідай українською стисло та структуровано у форматі:
+Зроби короткий технічний аналіз і сформуй рекомендацію у такому форматі:
 
 - Позиція: LONG або SHORT
 - Точка входу:
-- Тейк-профіт:
 - Стоп-лосс:
-- Орієнтовний час:
-- Опис ринкової ситуації:
+- Тейк-профіт:
+- Рекомендоване кредитне плече:
+- Орієнтовний час відпрацювання в годинах:
+- Опис ринкової ситуації: коротко оцінити індикатори
+
+Відповідай лаконічно українською мовою.
 """
 
-async def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, macd_signal, trend, support, resistance, bb_upper, bb_lower):
+
+async def generate_signal_description(
+    symbol,
+    timeframe,
+    rsi,
+    sma,
+    ema,
+    macd,
+    macd_signal,
+    bb_upper,
+    bb_lower,
+    trend,
+    support,
+    resistance,
+    price
+):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
@@ -42,14 +61,17 @@ async def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, ma
         "messages": [
             {
                 "role": "system",
-                "content": "Ти досвідчений трейдер-аналітик. Відповідай стисло та українською."
+                "content": "Ти досвідчений трейдер-аналітик. Відповідай коротко українською."
             },
             {
                 "role": "user",
-                "content": build_prompt(symbol, timeframe, rsi, sma, ema, macd, macd_signal, bb_upper, bb_lower, trend, support, resistance)
+                "content": build_prompt(
+                    symbol, timeframe, rsi, sma, ema, macd, macd_signal,
+                    bb_upper, bb_lower, trend, support, resistance, price
+                )
             }
         ],
-        "temperature": 0.3
+        "temperature": 0.4
     }
 
     try:
@@ -57,7 +79,7 @@ async def generate_signal_description(symbol, timeframe, rsi, sma, ema, macd, ma
             "https://api.groq.com/openai/v1/chat/completions",
             headers=headers,
             json=payload,
-            timeout=15
+            timeout=10
         )
         response.raise_for_status()
         data = response.json()
