@@ -1,25 +1,18 @@
-# scan.py
 from telegram import Update
 from telegram.ext import ContextTypes
 from services.market_data import analyze_crypto
 from services.llm_analysis import generate_signal_description
 
-# Користувач сам вводить монети через пробіл або кому
+# ⛏ Вручну введені монети
+MONETS = ["BTC", "ETH", "SOL", "APT", "BCH", "XRP", "AKT"]
+
 async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     timeframe = "1h"
-
-    if not context.args:
-        await update.message.reply_text("⚠️ Введіть символи монет через пробіл або кому, наприклад:\n/scan BTC ETH SOL")
-        return
-
-    # Отримуємо список монет
-    text = " ".join(context.args).replace(",", " ")
-    symbols = [s.upper() for s in text.split() if s.strip()]
     messages = []
 
-    for symbol in symbols:
+    for symbol in MONETS:
         try:
-            result = analyze_crypto(symbol, timeframe)
+            result = await analyze_crypto(symbol, timeframe)
             if not result:
                 continue
 
@@ -40,27 +33,13 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 resistance
             ) = result
 
-            # ✅ Гарантовано перетворюємо числові значення
-            current_price = float(current_price)
-            entry_price = float(entry_price)
-            exit_price = float(exit_price)
-            rsi = float(rsi)
-            sma = float(sma)
-            ema = float(ema)
-            macd = float(macd)
-            macd_signal = float(macd_signal)
-            bb_upper = float(bb_upper)
-            bb_lower = float(bb_lower)
-            support = float(support)
-            resistance = float(resistance)
-
-            # 🧠 Генеруємо відповідь від LLM
+            # ✅ Всі обов’язкові аргументи передані
             llm_response = await generate_signal_description(
                 symbol, timeframe, rsi, sma, ema, macd, macd_signal,
-                trend, support, resistance, current_price
+                trend, support, resistance, current_price, bb_upper, bb_lower
             )
 
-            # Показуємо тільки монети з сигналами
+            # 🔍 Повертаємо лише чіткі сигнали
             if "LONG" in llm_response or "SHORT" in llm_response:
                 response = (
                     f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
@@ -80,7 +59,7 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 messages.append(response)
 
         except Exception as e:
-            messages.append(f"❌ Помилка під час аналізу {symbol}: {e}")
+            await update.message.reply_text(f"❌ Помилка під час аналізу {symbol}: {e}")
 
     if messages:
         for msg in messages:
