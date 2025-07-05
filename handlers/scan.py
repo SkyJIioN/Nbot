@@ -56,4 +56,16 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"📉 EMA: {ema:.2f}\n"
                     f"📊 MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}\n"
                     f"📊 Bollinger Bands: Верхня {bb_upper:.2f}$ / Нижня {bb_lower:.2f}$\n"
-                    f"📉 Тренд: {trend.capitalize()
+                    f"📉 Тренд: {trend.capitalize()}\n"
+                    f"🔻 Підтримка: {support:.2f}$, 🔺 Опір: {resistance:.2f}$"
+                )
+                messages.append(response)
+
+        except Exception as e:
+            await update.message.reply_text(f"❌ Помилка під час аналізу {symbol}: {e}")
+
+    if messages:
+        for msg in messages:
+            await update.message.reply_text(msg)
+    else:
+        await update.message.reply_text("⚠️ Немає чітких сигналів (LONG або SHORT) серед введених монет.")
