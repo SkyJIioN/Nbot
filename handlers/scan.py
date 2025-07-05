@@ -50,9 +50,9 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # Отримуємо відповідь від LLM
             llm_response = await generate_signal_description(
-                symbol, timeframe, rsi, sma, ema, macd, macd_signal,
-                trend, support, resistance
-            )
+    symbol, timeframe, rsi, sma, ema, macd, macd_signal,
+    trend, support, resistance, bb_upper, bb_lower
+)
 
             if "LONG" in llm_response or "SHORT" in llm_response:
                 response = (
