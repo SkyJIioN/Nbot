@@ -1,68 +1,95 @@
-# services/market_data.py
-import os
-import requests
 import pandas as pd
 import numpy as np
-from ta.momentum import RSIIndicator
-from ta.trend import EMAIndicator, SMAIndicator, MACD
+import requests
+from datetime import datetime
+from ta.momentum import RSIIndicator, StochasticOscillator
+from ta.trend import EMAIndicator, SMAIndicator, MACD, ADXIndicator
 from ta.volatility import BollingerBands
+from ta.volume import VWAP
 
-CRYPTOCOMPARE_API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY")
+API_KEY = "YOUR_CRYPTOCOMPARE_API_KEY"
+BASE_URL = "https://min-api.cryptocompare.com/data/v2/histohour"
 
-def fetch_ohlcv(symbol: str, timeframe: str = "1h", limit: int = 50):
-    url = f"https://min-api.cryptocompare.com/data/v2/histohour"
+def fetch_ohlcv(symbol: str, timeframe: str, limit: int = 100):
     params = {
-        "fsym": symbol,
+        "fsym": symbol.upper(),
         "tsym": "USD",
         "limit": limit,
-        "api_key": CRYPTOCOMPARE_API_KEY
+        "aggregate": 1,
+        "api_key": API_KEY
     }
 
+    if timeframe == "1h":
+        params["aggregate"] = 1
+    elif timeframe == "4h":
+        params["aggregate"] = 4
+    elif timeframe == "12h":
+        params["aggregate"] = 12
+    else:
+        return None
+
     try:
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
-        if data["Response"] != "Success":
-            return None
-        df = pd.DataFrame(data["Data"]["Data"])
-        df["time"] = pd.to_datetime(df["time"], unit="s")
+        response = requests.get(BASE_URL, params=params)
+        response.raise_for_status()
+        data = response.json()["Data"]["Data"]
+
+        df = pd.DataFrame(data)
+        df["timestamp"] = pd.to_datetime(df["time"], unit="s")
+        df.set_index("timestamp", inplace=True)
         return df
     except Exception as e:
         print(f"❌ Помилка при завантаженні OHLCV: {e}")
         return None
 
 def calculate_indicators(df: pd.DataFrame):
+    if len(df) < 50:
+        return None
+
     close = df["close"]
+    high = df["high"]
+    low = df["low"]
+    volume = df["volumefrom"]
 
-    # RSI, SMA, EMA, MACD
-    rsi = RSIIndicator(close).rsi().iloc[-1]
-    sma = SMAIndicator(close).sma_indicator().iloc[-1]
-    ema = EMAIndicator(close).ema_indicator().iloc[-1]
-    macd_calc = MACD(close)
-    macd = macd_calc.macd().iloc[-1]
-    macd_signal = macd_calc.macd_signal().iloc[-1]
+    current_price = close.iloc[-1]
 
-    # Bollinger Bands
-    bb = BollingerBands(close)
+    rsi = RSIIndicator(close, window=14).rsi().iloc[-1]
+    sma = SMAIndicator(close, window=20).sma_indicator().iloc[-1]
+    ema = EMAIndicator(close, window=20).ema_indicator().iloc[-1]
+    macd_indicator = MACD(close)
+    macd = macd_indicator.macd().iloc[-1]
+    macd_signal = macd_indicator.macd_signal().iloc[-1]
+    
+    bb = BollingerBands(close, window=20, window_dev=2)
     bb_upper = bb.bollinger_hband().iloc[-1]
     bb_lower = bb.bollinger_lband().iloc[-1]
 
-    # Тренд
-    recent_closes = close[-50:]
-    trend = "висхідний" if recent_closes.iloc[-1] > recent_closes.iloc[0] else "низхідний"
+    vwap = VWAP(high=high, low=low, close=close, volume=volume).vwap().iloc[-1]
+    adx = ADXIndicator(high=high, low=low, close=close, window=14).adx().iloc[-1]
+    stoch = StochasticOscillator(high=high, low=low, close=close, window=14, smooth_window=3)
+    stoch_k = stoch.stoch().iloc[-1]
+    stoch_d = stoch.stoch_signal().iloc[-1]
 
-    # Рівні підтримки/опору (приблизні)
-    support = recent_closes.min()
-    resistance = recent_closes.max()
+    # Трендові рівні (на основі останніх 50 свічок)
+    support = low[-50:].min()
+    resistance = high[-50:].max()
+    trend = "висхідний" if close.iloc[-1] > close.iloc[-50] else "нисхідний"
 
-    current_price = close.iloc[-1]
+    # Точки входу/виходу — поки прості, далі можна автоматизувати краще через LLM
     entry_price = current_price
-    exit_price = current_price  # Це зміниться після LLM
+    exit_price = current_price * 1.02 if rsi < 30 else current_price * 0.98 if rsi > 70 else current_price
 
     indicators_str = (
-        f"RSI: {rsi:.2f}, SMA: {sma:.2f}, EMA: {ema:.2f}, "
-        f"MACD: {macd:.2f}, MACD Signal: {macd_signal:.2f}, "
-        f"Bollinger Bands: [{bb_lower:.2f}, {bb_upper:.2f}], "
-        f"Trend: {trend}, Support: {support:.2f}, Resistance: {resistance:.2f}"
+        f"🔍 Індикатори:\n"
+        f"• RSI: {rsi:.2f}\n"
+        f"• SMA: {sma:.2f}\n"
+        f"• EMA: {ema:.2f}\n"
+        f"• MACD: {macd:.2f} / {macd_signal:.2f}\n"
+        f"• Bollinger Bands: верхня {bb_upper:.2f}, нижня {bb_lower:.2f}\n"
+        f"• VWAP: {vwap:.2f}\n"
+        f"• ADX: {adx:.2f}\n"
+        f"• Stochastic RSI: K={stoch_k:.2f}, D={stoch_d:.2f}\n"
+        f"• Тренд: {trend}\n"
+        f"• Підтримка: {support:.2f} / Опір: {resistance:.2f}"
     )
 
     return (
@@ -82,8 +109,8 @@ def calculate_indicators(df: pd.DataFrame):
         resistance
     )
 
-async def analyze_crypto(symbol: str, timeframe: str):
+def analyze_crypto(symbol: str, timeframe: str):
     df = fetch_ohlcv(symbol, timeframe)
-    if df is None or len(df) < 50:
+    if df is None:
         return None
     return calculate_indicators(df)
