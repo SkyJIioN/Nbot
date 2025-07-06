@@ -4,7 +4,7 @@ from services.market_data import analyze_crypto
 from services.llm_analysis import generate_signal_description
 
 async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    timeframe = "15m"
+    timeframe = "1h"
 
     # Отримуємо текст після команди /scan
     text = update.message.text.replace("/scan", "").strip()
