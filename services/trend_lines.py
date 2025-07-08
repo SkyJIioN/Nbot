@@ -1,32 +1,20 @@
-# services/trend_lines.py
+import pandas as pd
 import numpy as np
 
-def calculate_trend_lines(close_prices, num_points=50):
-    """
-    Обчислює тренд, лінію підтримки і лінію опору на основі останніх `num_points` закриттів.
-    """
-    if len(close_prices) < num_points:
-        raise ValueError("Недостатньо даних для аналізу тренду")
+def calculate_trend_info(df: pd.DataFrame, lookback: int = 50):
+    df = df[-lookback:].copy()
+    df.reset_index(drop=True, inplace=True)
 
-    data = close_prices[-num_points:]
+    lows = df['low']
+    highs = df['high']
 
-    x = np.arange(len(data))
-    y = np.array(data)
+    # Підтримка (support) — найнижча точка
+    support = lows.min()
+    # Опір (resistance) — найвища точка
+    resistance = highs.max()
 
-    # Підгонка лінійного тренду
-    coef = np.polyfit(x, y, 1)
-    trend_slope = coef[0]
+    # Визначення тренду
+    price_diff = df['close'].iloc[-1] - df['close'].iloc[0]
+    trend = "висхідний" if price_diff > 0 else "нисхідний" if price_diff < 0 else "нейтральний"
 
-    if trend_slope > 0:
-        trend = "висхідний"
-    elif trend_slope < 0:
-        trend = "нисхідний"
-    else:
-        trend = "боковий"
-
-    # Лінія підтримки — мінімум з останніх точок
-    support = float(np.min(data))
-    # Лінія опору — максимум
-    resistance = float(np.max(data))
-
-    return trend, support, resistance
+    return trend, round(support, 5), round(resistance, 5)
