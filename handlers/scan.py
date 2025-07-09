@@ -69,3 +69,4 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(msg)
     else:
         await update.message.reply_text("⚠️ Немає чітких сигналів (LONG або SHORT) серед введених монет.")
+print("🔔 Отримано новий update:", data)
