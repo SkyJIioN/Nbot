@@ -9,6 +9,7 @@ webhook_router = APIRouter()
 async def webhook_handler(request: Request):
     try:
         data = await request.json()
+        print("🔔 Отримано новий update:", data)  
         update = Update.de_json(data, app_telegram.bot)
 
         # Ініціалізація Telegram Application (тільки 1 раз)
