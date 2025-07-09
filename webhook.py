@@ -24,4 +24,3 @@ async def webhook_handler(request: Request):
     except Exception as e:
         print(f"Error handling webhook: {e}")
         return {"status": "error", "message": str(e)}
-print("🔔 Отримано новий update:", data)
