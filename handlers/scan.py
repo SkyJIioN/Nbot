@@ -45,7 +45,7 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 symbol, timeframe, rsi, sma, ema, macd, macd_signal,
                 bb_upper, bb_lower, trend, support, resistance, current_price
             )
-
+print(f"🔁 LLM відповідь для {symbol}:\n{llm_response}")
             if "LONG" in llm_response or "SHORT" in llm_response:
                 response = (
                     f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
