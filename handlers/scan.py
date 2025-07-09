@@ -5,17 +5,18 @@ from services.llm_analysis import generate_signal_description
 
 async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     timeframe = "1h"
+    messages = []
 
-    # Отримуємо текст після команди /scan
-    text = update.message.text.replace("/scan", "").strip()
+    # Отримуємо текст після команди
+    text = update.message.text.strip()
+    parts = text.split(" ", 1)
 
-    if not text:
-        await update.message.reply_text("🔎 Введіть монети через кому, наприклад:\n`/scan BTC, ETH, SOL`", parse_mode="Markdown")
+    if len(parts) < 2:
+        await update.message.reply_text("⚠️ Вкажіть монети через пробіл або кому. Наприклад:\n/scan BTC ETH SOL або /scan BTC,ETH,SOL")
         return
 
-    # Розбиваємо введений текст у список монет
-    symbols = [s.strip().upper() for s in text.split(",") if s.strip()]
-    messages = []
+    user_input = parts[1].replace(",", " ").upper()
+    symbols = [s for s in user_input.split() if s.isalpha()]
 
     for symbol in symbols:
         try:
@@ -37,13 +38,12 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 bb_lower,
                 trend,
                 support,
-                resistance,
-                price
+                resistance
             ) = result
 
             llm_response = await generate_signal_description(
                 symbol, timeframe, rsi, sma, ema, macd, macd_signal,
-                bb_upper, bb_lower, trend, support, resistance, price
+                bb_upper, bb_lower, trend, support, resistance, current_price
             )
 
             if "LONG" in llm_response or "SHORT" in llm_response:
@@ -51,13 +51,15 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"📊 Аналіз {symbol} ({timeframe.upper()}):\n"
                     f"{llm_response}\n"
                     f"💱 Поточна ціна: {current_price:.5f}$\n"
-                    f"🔁 RSI: {rsi:.5f}\n"
-                    f"📊 SMA: {sma:.5f}\n"
-                    f"📉 EMA: {ema:.5f}\n"
-                    f"📊 MACD: {macd:.5f}, Сигнальна: {macd_signal:.5f}\n"
-                    f"📊 Bollinger Bands: Верхня {bb_upper:.5f}$ / Нижня {bb_lower:.5f}$\n"
+                    f"🔁 RSI: {rsi:.2f}\n"
+                    f"📊 SMA: {sma:.2f}\n"
+                    f"📉 EMA: {ema:.2f}\n"
+                    f"📊 MACD: {macd:.2f}, Сигнальна: {macd_signal:.2f}\n"
+                    f"📊 Bollinger Bands: Верхня {bb_upper:.2f}$ / Нижня {bb_lower:.2f}$\n"
                     f"📉 Тренд: {trend.capitalize()}\n"
-                    f"🔻 Підтримка: {support:.5f}$, 🔺 Опір: {resistance:.5f}$"
+                    f"🔻 Підтримка: {support:.2f}$, 🔺 Опір: {resistance:.2f}$\n"
+                    f"💰 Точка входу: {entry_price:.5f}$\n"
+                    f"📈 Точка виходу: {exit_price:.5f}$"
                 )
                 messages.append(response)
 
@@ -68,4 +70,4 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for msg in messages:
             await update.message.reply_text(msg)
     else:
-        await update.message.reply_text("⚠️ Немає чітких сигналів (LONG або SHORT) серед введених монет.")
+        await update.message.reply_text("⚠️ Немає чітких сигналів (LONG або SHORT) серед заданих монет.")
