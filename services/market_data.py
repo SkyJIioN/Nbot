@@ -67,4 +67,8 @@ def analyze_crypto(symbol: str, timeframe: str):
         return calculate_indicators(df)
     except Exception as e:
         print(f"❌ Помилка при завантаженні OHLCV: {e}")
+df = get_ohlcv_data(symbol, timeframe)
+if df is None or df.empty:
+    print(f"⚠️ Помилка: Порожній DataFrame для {symbol}")
+    return None
         return None
