@@ -39,7 +39,7 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ) = result
 
             try:
-                llm_response = await generate_signal_description(
+                llm_response = generate_signal_description(
                     symbol, timeframe, rsi, sma, ema, macd, macd_signal,
                     bb_upper, bb_lower, trend, support, resistance, current_price
                 )
