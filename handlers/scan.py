@@ -47,9 +47,11 @@ async def scan_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ) = result
 
                 llm_response = await generate_signal_description(
-                    symbol, timeframe, rsi, sma, ema, macd, macd_signal,
-                    bb_upper, bb_lower, trend, support, resistance, current_price
-                )
+    symbol, timeframe, rsi, sma, ema, macd, macd_signal,
+    bb_upper, bb_lower, trend, support, resistance, current_price
+)
+
+print(f"🔁 Відповідь LLM для {symbol}:\n{llm_response}")
 
                 if not llm_response:
                     await update.message.reply_text(f"⚠️ LLM не повернув відповідь для {symbol}")
