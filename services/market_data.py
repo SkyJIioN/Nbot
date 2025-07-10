@@ -1,87 +1,87 @@
+import requests
 import pandas as pd
 import numpy as np
+from datetime import datetime
+from services.trend_lines import calculate_trend_lines
 from ta.momentum import RSIIndicator
 from ta.trend import SMAIndicator, EMAIndicator, MACD
 from ta.volatility import BollingerBands
-from services.crypto_api import get_ohlcv_data
-from services.trend_lines import detect_trend_lines
+
+API_KEY = "your_cryptocompare_api_key"
 
 
-async def analyze_crypto(symbol: str, timeframe: str):
-    try:
-        df = await get_ohlcv_data(symbol, timeframe)
+def fetch_ohlcv(symbol: str, timeframe: str = "1h", limit: int = 50):
+    url = f"https://min-api.cryptocompare.com/data/v2/histohour"
+    params = {
+        "fsym": symbol,
+        "tsym": "USD",
+        "limit": limit,
+        "api_key": API_KEY
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+    
+    if 'Data' not in data['Data']:
+        raise ValueError("Помилка при завантаженні OHLCV: 'Data'")
 
-        if df is None:
-            print(f"❌ Не вдалося завантажити OHLCV для {symbol}")
-            return None
-
-        if len(df) < 50:
-            print(f"⚠️ Недостатньо даних: {len(df)} свічок для {symbol}")
-            return None
-
-        print(f"✅ Отримано {len(df)} свічок для {symbol}")
-
-        result = calculate_indicators(df)
-        if not result:
-            print(f"⚠️ Не вдалося розрахувати індикатори для {symbol}")
-            return None
-
-        print(f"✅ Розраховано індикатори для {symbol}")
-        return result
-
-    except Exception as e:
-        print(f"❌ Помилка при аналізі {symbol}: {e}")
-        return None
+    df = pd.DataFrame(data['Data']['Data'])
+    df["time"] = pd.to_datetime(df["time"], unit="s")
+    df.set_index("time", inplace=True)
+    return df
 
 
 def calculate_indicators(df: pd.DataFrame):
+    close = df["close"]
+    high = df["high"]
+    low = df["low"]
+
+    # Індикатори
+    rsi = RSIIndicator(close).rsi().iloc[-1]
+    sma = SMAIndicator(close, window=14).sma_indicator().iloc[-1]
+    ema = EMAIndicator(close, window=14).ema_indicator().iloc[-1]
+
+    macd = MACD(close)
+    macd_val = macd.macd().iloc[-1]
+    macd_signal = macd.macd_signal().iloc[-1]
+
+    bb = BollingerBands(close)
+    bb_upper = bb.bollinger_hband().iloc[-1]
+    bb_lower = bb.bollinger_lband().iloc[-1]
+
+    # Поточна ціна (остання)
+    price = close.iloc[-1]
+    entry_price = price
+    exit_price = price
+
+    # Тренд і рівні підтримки/опору
+    trend, support, resistance = calculate_trend_lines(close)
+
+    # Для текстового відображення
+    indicators_str = f"RSI: {rsi:.2f}, SMA: {sma:.2f}, EMA: {ema:.2f}, MACD: {macd_val:.2f}/{macd_signal:.2f}"
+
+    return (
+        indicators_str,
+        float(price),
+        float(entry_price),
+        float(exit_price),
+        float(rsi),
+        float(sma),
+        float(ema),
+        float(macd_val),
+        float(macd_signal),
+        float(bb_upper),
+        float(bb_lower),
+        trend,
+        float(support),
+        float(resistance),
+        float(price)
+    )
+
+
+def analyze_crypto(symbol: str, timeframe: str):
     try:
-        close = df["close"]
-
-        rsi = RSIIndicator(close=close, window=14).rsi().iloc[-1]
-        sma = SMAIndicator(close=close, window=14).sma_indicator().iloc[-1]
-        ema = EMAIndicator(close=close, window=14).ema_indicator().iloc[-1]
-
-        macd_indicator = MACD(close=close)
-        macd = macd_indicator.macd().iloc[-1]
-        macd_signal = macd_indicator.macd_signal().iloc[-1]
-
-        bb = BollingerBands(close=close, window=20, window_dev=2)
-        bb_upper = bb.bollinger_hband().iloc[-1]
-        bb_lower = bb.bollinger_lband().iloc[-1]
-
-        # Тренд і рівні
-        trend, support, resistance = detect_trend_lines(df)
-
-        # Поточна ціна = останній закритий бар
-        current_price = float(close.iloc[-1])
-
-        # Прості евристики для точок входу/виходу
-        entry_price = round(current_price, 5)
-        exit_price = round((support + resistance) / 2, 5)
-
-        indicators_summary = (
-            f"RSI: {rsi:.2f}, SMA: {sma:.2f}, EMA: {ema:.2f}, MACD: {macd:.2f}/{macd_signal:.2f}, "
-            f"BB: {bb_lower:.2f}-{bb_upper:.2f}, Trend: {trend}"
-        )
-
-        return (
-            indicators_summary,
-            round(current_price, 5),
-            entry_price,
-            exit_price,
-            round(rsi, 2),
-            round(sma, 2),
-            round(ema, 2),
-            round(macd, 2),
-            round(macd_signal, 2),
-            round(bb_upper, 2),
-            round(bb_lower, 2),
-            trend,
-            round(support, 2),
-            round(resistance, 2),
-        )
-
+        df = fetch_ohlcv(symbol, timeframe)
+        return calculate_indicators(df)
     except Exception as e:
-        print(f"❌ Помилка при обрахунку індикаторів: {e}")
+        print(f"❌ Помилка при аналізі {symbol}: {e}")
         return None
