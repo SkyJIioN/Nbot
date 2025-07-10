@@ -1,42 +1,57 @@
-import requests
+import aiohttp
+import os
+import pandas as pd
+from datetime import datetime
 
-BINANCE_BASE_URL = "https://api.binance.com"
+BINANCE_API_URL = "https://api.binance.com/api/v3/klines"
 
-# Підтримувані таймфрейми Binance
-SUPPORTED_INTERVALS = [
-    "1m", "3m", "5m", "15m", "30m",
-    "1h", "2h", "4h", "6h", "8h", "12h",
-    "1d", "3d", "1w", "1M"
-]
+def format_symbol(symbol: str) -> str:
+    """Повертає символ у форматі Binance (наприклад, BTC -> BTCUSDT)."""
+    return symbol.upper() + "USDT"
 
-def get_ohlcv_data(symbol: str, interval: str = "1h", limit: int = 50):
-    if interval not in SUPPORTED_INTERVALS:
-        raise ValueError(f"⛔ Непідтримуваний таймфрейм: {interval}")
+def convert_binance_interval(interval: str) -> str:
+    """Переводить таймфрейм у формат Binance."""
+    valid = {"15m", "1h", "4h", "12h", "1d"}
+    return interval if interval in valid else "1h"
 
-    url = f"{BINANCE_BASE_URL}/api/v3/klines"
+async def get_ohlcv_data(symbol: str, interval: str = "1h", limit: int = 50):
+    binance_symbol = format_symbol(symbol)
+    interval = convert_binance_interval(interval)
+
     params = {
-        "symbol": symbol.upper() + "USDT",
+        "symbol": binance_symbol,
         "interval": interval,
         "limit": limit
     }
 
     try:
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        async with aiohttp.ClientSession() as session:
+            async with session.get(BINANCE_API_URL, params=params) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    print(f"❌ Помилка під час запиту до Binance API: {resp.status} {text}")
+                    return None
+
+                data = await resp.json()
+
+                if not isinstance(data, list) or not data:
+                    print(f"❌ Невірний формат відповіді від Binance API: {data}")
+                    return None
+
+                # Формуємо DataFrame
+                df = pd.DataFrame(data, columns=[
+                    "timestamp", "open", "high", "low", "close", "volume",
+                    "_", "_", "_", "_", "_", "_"
+                ])
+                df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+                df.set_index("timestamp", inplace=True)
+
+                for col in ["open", "high", "low", "close", "volume"]:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+
+                print(f"📥 Binance OHLCV {symbol}: {len(df)} рядків")
+                return df
+
     except Exception as e:
-        raise Exception(f"❌ Помилка під час запиту до Binance API: {e}")
-
-    # Перетворюємо відповіді в зручний формат
-    ohlcv = []
-    for candle in data:
-        ohlcv.append({
-            "timestamp": int(candle[0]),
-            "open": float(candle[1]),
-            "high": float(candle[2]),
-            "low": float(candle[3]),
-            "close": float(candle[4]),
-            "volume": float(candle[5])
-        })
-
-    return ohlcv
+        print(f"❌ Помилка при отриманні OHLCV для {symbol}: {e}")
+        return None
