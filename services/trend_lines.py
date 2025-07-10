@@ -1,20 +1,18 @@
-import pandas as pd
 import numpy as np
 
-def calculate_trend_info(df: pd.DataFrame, lookback: int = 50):
-    df = df[-lookback:].copy()
-    df.reset_index(drop=True, inplace=True)
+def detect_trend_lines(prices: list[float]):
+    if len(prices) < 2:
+        return None, None, "нейтральний"
 
-    lows = df['low']
-    highs = df['high']
+    x = np.arange(len(prices))
+    y = np.array(prices)
 
-    # Підтримка (support) — найнижча точка
-    support = lows.min()
-    # Опір (resistance) — найвища точка
-    resistance = highs.max()
+    # Лінія тренду (лінійна регресія)
+    slope, intercept = np.polyfit(x, y, 1)
+    trend = "висхідний" if slope > 0 else "нисхідний" if slope < 0 else "нейтральний"
 
-    # Визначення тренду
-    price_diff = df['close'].iloc[-1] - df['close'].iloc[0]
-    trend = "висхідний" if price_diff > 0 else "нисхідний" if price_diff < 0 else "нейтральний"
+    # Лінії підтримки і опору
+    support = min(prices)
+    resistance = max(prices)
 
-    return trend, round(support, 5), round(resistance, 5)
+    return round(support, 5), round(resistance, 5), trend
