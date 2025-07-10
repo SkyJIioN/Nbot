@@ -7,19 +7,30 @@ from services.crypto_api import get_ohlcv_data
 from services.trend_lines import detect_trend_lines
 
 
-def analyze_crypto(symbol: str, timeframe: str = "1h"):
+async def analyze_crypto(symbol: str, timeframe: str):
     try:
-        binance_symbol = symbol.upper() + "USDT"
-        df = get_ohlcv_data(binance_symbol, timeframe)
+        df = await get_ohlcv_data(symbol, timeframe)
 
-        if df is None or df.empty:
-            print(f"⚠️ Недостатньо даних для {symbol}")
+        if df is None:
+            print(f"❌ Не вдалося завантажити OHLCV для {symbol}")
             return None
 
-        return calculate_indicators(df)
+        if len(df) < 50:
+            print(f"⚠️ Недостатньо даних: {len(df)} свічок для {symbol}")
+            return None
+
+        print(f"✅ Отримано {len(df)} свічок для {symbol}")
+
+        result = calculate_indicators(df)
+        if not result:
+            print(f"⚠️ Не вдалося розрахувати індикатори для {symbol}")
+            return None
+
+        print(f"✅ Розраховано індикатори для {symbol}")
+        return result
 
     except Exception as e:
-        print(f"❌ Помилка при завантаженні OHLCV для {symbol}: {e}")
+        print(f"❌ Помилка при аналізі {symbol}: {e}")
         return None
 
 
